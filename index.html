@@ -152,6 +152,27 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
   font-family:'Barlow',system-ui,sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
 .empty{color:var(--muted);font-size:14px;text-align:center;padding:14px;border:1.5px dashed var(--line-2);border-radius:8px}
 .foot{text-align:center;color:var(--muted);font-size:12px;margin-top:26px;line-height:1.6}
+
+/* ---- my projects / edit mode ---- */
+.mine{margin-top:22px}
+.mine .head{display:flex;align-items:center;justify-content:space-between;margin:6px 2px 10px}
+.mine .head h2{margin:0}
+.mine .head button{background:transparent;border:none;color:var(--hi-dark);font-family:'Barlow',system-ui,sans-serif;
+  font-weight:700;font-size:12px;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;padding:6px 4px}
+.item .edit{background:var(--hi-soft);color:var(--hi-dark);border:none;border-radius:7px;padding:8px 12px;
+  font-family:'Barlow',system-ui,sans-serif;font-weight:700;font-size:12px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer;flex:0 0 auto}
+.item .edit:hover{background:#FBDDCB}
+.item.editing{border-left-color:var(--hi);background:var(--hi-soft)}
+.card.editing{border-color:var(--hi);box-shadow:0 0 0 3px var(--hi-soft)}
+.editOnly{display:none}
+.card.editing .editOnly{display:block}
+.card.editing .editOnly.row2{display:grid}
+.editNote{font-size:13px;color:var(--hi-dark);font-weight:600;margin:-6px 0 14px}
+.btnRow{display:grid;grid-template-columns:1fr 2fr;gap:10px}
+.btnRow .btn-ghost{min-height:56px;font-size:16px}
+.card.editing #addBtn{display:none}
+.card.editing .btnRow.editOnly{display:grid}
+#projCard{scroll-margin-top:84px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -208,8 +229,26 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
 
   <div class="tally"><b id="count">0</b><span>projects added this session</span></div>
 
-  <div class="card">
-    <h2>New project</h2>
+  <div class="card" id="projCard">
+    <h2 id="cardTitle">New project</h2>
+    <div class="editOnly editNote" id="editNote">Editing a saved project. Change anything, then save.</div>
+    <div class="editOnly field" id="e_name">
+      <label>Name on this project</label>
+      <select id="eName"></select>
+      <div class="err-msg">Pick a name.</div>
+    </div>
+    <div class="editOnly row2">
+      <div class="field" id="e_role">
+        <label>Role</label>
+        <select id="eRole"></select>
+        <div class="err-msg">Pick a role.</div>
+      </div>
+      <div class="field" id="e_company">
+        <label>Company</label>
+        <input id="eCompany" type="text" autocomplete="off">
+        <div class="err-msg">Enter a company.</div>
+      </div>
+    </div>
     <div class="field" id="p_name">
       <label>Project name</label>
       <input id="pName" type="text" placeholder="e.g. Stockton Industrial Warehouse" autocomplete="off">
@@ -259,6 +298,10 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
       </div>
     </div>
     <button class="btn btn-hi" id="addBtn">Add project</button>
+    <div class="btnRow editOnly" id="editBtns">
+      <button class="btn btn-ghost" id="cancelEdit">Cancel</button>
+      <button class="btn btn-hi" id="saveEdit">Save changes</button>
+    </div>
   </div>
 
   <div class="log">
@@ -266,7 +309,12 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
     <div id="logList"><div class="empty">Nothing yet. Your first project shows up here.</div></div>
   </div>
 
-  <div class="foot">Need to fix an older project? Those edits happen in the master sheet, not here.</div>
+  <div class="log mine">
+    <div class="head"><h2>My saved projects</h2><button id="reloadMine">Refresh</button></div>
+    <div id="mineList"><div class="empty">Loading…</div></div>
+  </div>
+
+  <div class="foot">Tap Edit on any saved project to fix it. Projects can't be deleted here.</div>
 </div>
 
 <div class="toast" id="toast"><span class="dot"></span><span id="toastMsg">Saved</span></div>
@@ -279,6 +327,10 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
 // 1) Paste your n8n webhook URL here. While it's left as PASTE_WEBHOOK_URL_HERE,
 //    the app runs in TEST MODE (logs projects on screen but doesn't save them).
 const WEBHOOK_URL = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-project";
+
+// Edit support (n8n workflow "Haggerty Portfolio Edit"): list a person's saved projects, update one.
+const LIST_URL   = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-list";
+const UPDATE_URL = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-update";
 
 // Shared secret sent with every submission. Must match the key checked in n8n.
 const SUBMIT_KEY = "67b2238ac5963a25ea2f1ff9ace818080aa309c4f05f4c69";
@@ -352,9 +404,14 @@ $('coSelect').addEventListener('change', ()=> toggleOther($('coSelect'), $('coOt
 
 let identity = null;
 let count = 0;
+let mine = [];          // saved projects from the sheet for the current name
+let mineFor = null;     // which name `mine` belongs to
+let editing = null;     // the saved project being edited, as loaded
+let mineTimer = null;
 const log = [];       // {id, project, vertical, status}  status: ok|pending|failed
 const pending = {};   // id -> payload, for retry
 
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials = n => n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase() || '–';
 const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; };
 
@@ -366,6 +423,7 @@ function showAdd(){
   $('whoMeta').textContent = identity.role;
   $('coNow').textContent = identity.company;
   if(TEST_MODE) $('connBanner').classList.remove('hidden');
+  loadMine();
 }
 
 // restore identity if we saved one on this device
@@ -442,7 +500,7 @@ function renderLog(){
     const st = it.status==='ok'?'<span class="st ok">Saved</span>'
              : it.status==='failed'?`<button class="retry" data-id="${it.id}">Retry</button>`
              : '<span class="st pend">Saving…</span>';
-    return `<div class="item${cls}"><div class="txt"><b>${it.project}</b><span>${it.vertical}</span></div>${st}</div>`;
+    return `<div class="item${cls}"><div class="txt"><b>${esc(it.project)}</b><span>${esc(it.vertical)}</span></div>${st}</div>`;
   }).join('');
   wrap.querySelectorAll('.retry').forEach(b=> b.onclick=()=>send(b.dataset.id));
 }
@@ -463,6 +521,7 @@ async function send(id){
     await post(pending[id]);
     item.status='ok'; delete pending[id]; renderLog();
     toast(TEST_MODE?'Logged (test mode)':'Project saved', true);
+    scheduleMineReload();
   }catch(e){
     item.status='failed'; renderLog();
     toast('Save failed — tap Retry', false);
@@ -512,6 +571,121 @@ $('addBtn').onclick = async ()=>{
   window.scrollTo({top:0,behavior:'smooth'});
 
   send(id);
+};
+
+/* ==========================================================================
+   MY SAVED PROJECTS + EDIT (no delete)
+   ========================================================================== */
+function scheduleMineReload(){ clearTimeout(mineTimer); mineTimer = setTimeout(loadMine, 1500); }
+
+async function api(url, payload){
+  const res = await fetch(url,{ method:'POST',
+    headers:{'Content-Type':'application/json','x-portfolio-key':SUBMIT_KEY}, body:JSON.stringify(payload) });
+  let data = null; try{ data = await res.json(); }catch(e){}
+  return { ok: res.ok, status: res.status, data };
+}
+
+function renderMine(msg){
+  const wrap = $('mineList');
+  if(msg){ wrap.innerHTML = `<div class="empty">${esc(msg)}</div>`; return; }
+  if(!mine.length){ wrap.innerHTML = '<div class="empty">No saved projects under your name yet.</div>'; return; }
+  wrap.innerHTML = mine.map((p,i)=>{
+    const meta = [p.vertical, p.year_completed, p.city_state].filter(v=>v!==''&&v!=null).map(esc).join(' · ');
+    const on = editing && editing.index === p.index ? ' editing' : '';
+    return `<div class="item${on}"><div class="txt"><b>${esc(p.project_name||'(no name)')}</b><span>${meta}</span></div>`
+         + `<button class="edit" data-i="${i}">Edit</button></div>`;
+  }).join('');
+  wrap.querySelectorAll('.edit').forEach(b=> b.onclick=()=>startEdit(mine[+b.dataset.i]));
+}
+
+async function loadMine(){
+  if(!identity || !identity.name) return;
+  if(TEST_MODE){ renderMine('Saved projects show up here once the app is live.'); return; }
+  if(mineFor !== identity.name){ mine = []; mineFor = identity.name; if(editing) endEdit(); }
+  if(!mine.length) renderMine('Loading…');
+  const asked = identity.name;
+  try{
+    const r = await api(LIST_URL, { name: identity.name });
+    if(!r.ok || !r.data || !r.data.ok) throw new Error('HTTP '+r.status);
+    if(asked !== identity.name) return;               // name changed while loading
+    mine = (r.data.projects||[]).slice().reverse();   // newest first
+    renderMine();
+  }catch(e){ renderMine("Couldn't load your saved projects. Tap Refresh to try again."); }
+}
+$('reloadMine').onclick = loadMine;
+
+// put a value in a select, adding it as an option if the list doesn't have it (older rows)
+function setSelect(id, val, ph){
+  const el = $(id); val = val==null ? '' : String(val);
+  if(val && ![...el.options].some(o=>o.value===val)){ const o=document.createElement('option'); o.textContent=val; el.appendChild(o); }
+  el.value = val;
+}
+
+function startEdit(p){
+  editing = p;
+  const card = $('projCard'); clearBad(card);
+  fill('eName', NAMES, 'Select name'); fill('eRole', ROLES, 'Select role');
+  setSelect('eName', p.name); setSelect('eRole', p.role);
+  $('eCompany').value = p.company ?? '';
+  $('pName').value  = p.project_name ?? '';
+  $('pCost').value  = p.cost ?? '';
+  $('pSf').value    = p.square_footage ?? '';
+  setSelect('pVert', p.vertical); setSelect('pType', p.project_type);
+  $('pScope').value = p.scope ?? '';
+  $('pArch').value  = p.architect ?? '';
+  $('pYear').value  = p.year_completed ?? '';
+  $('pCity').value  = p.city_state ?? '';
+  $('cardTitle').textContent = 'Edit project';
+  card.classList.add('editing');
+  renderMine();
+  card.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function endEdit(){
+  editing = null;
+  const card = $('projCard'); clearBad(card); card.classList.remove('editing');
+  $('cardTitle').textContent = 'New project';
+  ['pName','pCost','pSf','pScope','pArch','pYear','pCity'].forEach(k=>$(k).value='');
+  $('pVert').value=''; $('pType').value='';
+  renderMine();
+}
+$('cancelEdit').onclick = endEdit;
+
+$('saveEdit').onclick = async ()=>{
+  if(!editing) return;
+  const card = $('projCard'); clearBad(card);
+  const name=$('eName').value, role=$('eRole').value, company=$('eCompany').value.trim();
+  const project=$('pName').value.trim();
+  const cost=num($('pCost').value), sf=num($('pSf').value), year=num($('pYear').value);
+  const vert=$('pVert').value, type=$('pType').value, scope=$('pScope').value.trim();
+  let ok=true;
+  if(!name){markBad('e_name');ok=false}
+  if(!role){markBad('e_role');ok=false}
+  if(!company){markBad('e_company');ok=false}
+  if(!project){markBad('p_name');ok=false}
+  if(cost===null){markBad('p_cost');ok=false}
+  if(sf===null){markBad('p_sf');ok=false}
+  if(!vert){markBad('p_vert');ok=false}
+  if(!type){markBad('p_type');ok=false}
+  if(!scope){markBad('p_scope');ok=false}
+  if(!ok){ card.querySelector('.field.bad').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+
+  const btn=$('saveEdit'); btn.disabled=true; btn.textContent='Saving…';
+  try{
+    const r = await api(UPDATE_URL, {
+      index: editing.index,
+      original: { name: editing.name, project_name: editing.project_name },
+      project: { name, role, company, project_name:project, cost, square_footage:sf, vertical:vert,
+        project_type:type, architect:$('pArch').value.trim(), scope, year_completed:year ?? '',
+        city_state:$('pCity').value.trim() }
+    });
+    if(r.status===409){ toast('That project moved in the sheet. Reloading your list.', false); endEdit(); loadMine(); return; }
+    if(!r.ok || !r.data || !r.data.ok) throw new Error('HTTP '+r.status);
+    toast('Changes saved', true);
+    endEdit(); loadMine();
+  }catch(e){
+    toast('Save failed. Try again.', false);
+  }finally{ btn.disabled=false; btn.textContent='Save changes'; }
 };
 </script>
 </body>
