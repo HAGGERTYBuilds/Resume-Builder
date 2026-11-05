@@ -331,7 +331,7 @@ function load(data){
   $("pDate").value = today();
 
   const notes = [];
-  if (!data.availability_ok) notes.push("The 3-week look-ahead couldn't be reached, so availability isn't shown.");
+  if (data.availability_used && !data.availability_ok) notes.push("The 3-week look-ahead couldn't be reached, so availability isn't shown.");
   if (!data.bios_ok) notes.push("Tailored bios didn't come back this time; starter bios are filled in from each person's projects. Edit before sending.");
   $("availNote").classList.toggle("hidden", !notes.length);
   $("availNote").textContent = notes.join(" ");
@@ -368,7 +368,7 @@ function renderPositions(){
           <input type="checkbox" ${pk.on ? "checked" : ""} aria-label="Include ${esc(firstLast(c.name))}">
           <div class="who"><b>${esc(firstLast(c.name))}</b>
             <span>${esc(c.current_role)} · ${esc(c.company)} · ${c.project_count} project${c.project_count === 1 ? "" : "s"} on file</span>
-            <div><span class="chip ${c.availability.status}">${avLabel}</span>${why.map(w => `<span class="chip why">${esc(w)}</span>`).join("")}</div>
+            <div>${avLabel ? `<span class="chip ${c.availability.status}">${avLabel}</span>` : ""}${why.map(w => `<span class="chip why">${esc(w)}</span>`).join("")}</div>
             ${c.role_note ? `<span>${esc(c.role_note)}</span>` : ""}
           </div>
           <div class="score"><b>${Math.max(0, c.score)}</b><div class="meter"><i style="width:${Math.max(4, Math.round(100 * Math.max(0, c.score) / max))}%"></i></div></div>
@@ -381,7 +381,7 @@ function renderPositions(){
             <label class="proj"><input type="checkbox" data-j="${j}" ${pk.projects.has(j) ? "checked" : ""}>
               <div><b>${esc(p.project_name)}</b><span>${esc([p.city_state, p.vertical, p.project_type, sqft(p.square_footage), money(p.cost), p.year_completed].filter(Boolean).join(" · "))}</span></div>
               <span class="m">${p.match}</span></label>`).join("")}
-          <div class="avail">${esc(c.availability.detail)}</div>
+          ${c.availability.detail ? `<div class="avail">${esc(c.availability.detail)}</div>` : ""}
         </div>`;
       const cb = el.querySelector(".top input");
       el.querySelector(".top").onclick = e => {

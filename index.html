@@ -258,12 +258,12 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
       <div class="field" id="p_cost">
         <label>Cost ($)</label>
         <input id="pCost" type="text" inputmode="numeric" placeholder="12,500,000">
-        <div class="err-msg">Enter a number.</div>
+        <div class="err-msg">Enter the full dollar value, like 7,500,000.</div>
       </div>
       <div class="field" id="p_sf">
         <label>Square footage</label>
         <input id="pSf" type="text" inputmode="numeric" placeholder="220,000">
-        <div class="err-msg">Enter a number.</div>
+        <div class="err-msg">Enter the building size in SF, like 45,000.</div>
       </div>
     </div>
     <div class="row2">
@@ -280,21 +280,27 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
     </div>
     <div class="field" id="p_scope">
       <label>Scope</label>
-      <textarea id="pScope" placeholder="What you ran on this job — e.g. Full GC oversight, ground-up tilt-up, sitework through TI"></textarea>
-      <div class="err-msg">Enter the scope.</div>
+      <textarea id="pScope" placeholder="Client, what was built, and what you ran. e.g. Client: City of Lodi. Ground-up animal shelter; ran sitework, underground utilities and building through finishes."></textarea>
+      <div class="err-msg">Add a sentence or two: the client, what was built, and what you ran.</div>
     </div>
     <div class="field">
-      <label>Architect</label>
+      <label>Architect <span class="opt">(leave blank if none)</span></label>
       <input id="pArch" type="text" placeholder="e.g. Ware Malcomb" autocomplete="off">
     </div>
-    <div class="row2">
-      <div class="field">
-        <label>Year</label>
-        <input id="pYear" type="text" inputmode="numeric" placeholder="2023">
+    <div class="field" id="p_year">
+      <label>Year completed</label>
+      <input id="pYear" type="text" inputmode="numeric" placeholder="2023" maxlength="4">
+      <div class="err-msg">Enter a 4-digit year. Still under way? Use the planned finish year.</div>
+    </div>
+    <div class="row2 cityRow">
+      <div class="field" id="p_city">
+        <label>City</label>
+        <input id="pCity" type="text" placeholder="Stockton" autocomplete="off">
+        <div class="err-msg">Enter the city.</div>
       </div>
       <div class="field">
-        <label>City / State</label>
-        <input id="pCity" type="text" placeholder="Stockton, CA" autocomplete="off">
+        <label>State</label>
+        <select id="pState"></select>
       </div>
     </div>
     <button class="btn btn-hi" id="addBtn">Add project</button>
@@ -357,9 +363,18 @@ const COMPANIES = ["Haggerty Construction"];
 // Anyone can also choose "Other company…" and type their own.
 
 const VERTICALS = ["Industrial","Office / TI","Retail","Hospitality",
-  "Multi-Family","Senior Living","Healthcare","Auto"];
+  "Multi-Family","Senior Living","Healthcare","Auto","Public / Civic","Education"];
+// Keep this list matched to the Vertical list on the workbook's Setup tab.
 
 const TYPES = ["Ground-up","Tenant Improvement"];
+
+// State picker: CA first. "Other / outside US" lets someone type the full place in the City box.
+const STATES = ["CA","AK","AL","AR","AZ","CO","CT","DC","DE","FL","GA","HI","IA","ID","IL","IN","KS","KY","LA","MA","MD","ME",
+  "MI","MN","MO","MS","MT","NC","ND","NE","NH","NJ","NM","NV","NY","OH","OK","OR","PA","RI","SC","SD","TN","TX","UT","VA",
+  "VT","WA","WI","WV","WY"];
+const OTHER_PLACE = "Other / outside US";
+// Roles that log work without a building value or size (cost and SF optional)
+const NO_SIZE_ROLES = ["Safety Officer"];
 
 /* ==========================================================================
    APP  — no edits needed below
@@ -383,6 +398,59 @@ const fill = (sel, arr, ph) => {
 };
 fill('idName',NAMES,'Select your name');
 fill('idRole',ROLES,'Select role');
+$('pState').innerHTML = [...STATES, OTHER_PLACE].map(s=>`<option>${s}</option>`).join('');
+$('pState').value = 'CA';
+
+/* ---------- clean, consistent project data ---------- */
+const squish = s => String(s ?? '').replace(/\s+/g,' ').trim();
+// "stockton" / "STOCKTON" -> "Stockton"; leaves mixed case like "McKinleyville" alone
+const titleCase = s => squish(s).replace(/[.,]+$/,'').split(' ').map(w =>
+  (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 3)) ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
+const PLACEHOLDERS = /^(none|n\/?a|na|unknown|tbd|\?+|-+|\.+)$/i;
+const cleanArch = s => PLACEHOLDERS.test(squish(s)) ? '' : squish(s);
+const cleanCompany = s => /^haggerty( construction)?( inc\.?)?$/i.test(squish(s)) ? 'Haggerty Construction' : squish(s);
+function joinPlace(city, state){
+  const c = state === OTHER_PLACE ? squish(city) : titleCase(city);
+  return !c ? '' : state === OTHER_PLACE ? c : `${c}, ${state}`;
+}
+function splitPlace(s){
+  s = squish(s).replace(/\//g, ', ');
+  const m = s.match(/^(.*?)[,\s]+([A-Za-z]{2})\.?$/);
+  if (m && STATES.includes(m[2].toUpperCase())) return { city: m[1].replace(/[.,]+$/,'').trim(), state: m[2].toUpperCase() };
+  return s ? { city: s, state: OTHER_PLACE } : { city: '', state: 'CA' };
+}
+// Reads and checks the project card. Used by both "Add project" and "Save changes".
+function readProject(role){
+  const card = $('projCard'); clearBad(card);
+  const sizeOptional = NO_SIZE_ROLES.includes(role);
+  const p = {
+    project_name: squish($('pName').value),
+    cost: num($('pCost').value), square_footage: num($('pSf').value),
+    vertical: $('pVert').value, project_type: $('pType').value,
+    scope: squish($('pScope').value), architect: cleanArch($('pArch').value),
+    year_completed: num($('pYear').value), city_state: joinPlace($('pCity').value, $('pState').value)
+  };
+  const thisYear = new Date().getFullYear();
+  let ok = true;
+  if (!p.project_name) { markBad('p_name'); ok = false; }
+  if (sizeOptional) { if (p.cost !== null && p.cost < 1000) p.cost = null; if (p.square_footage !== null && p.square_footage < 100) p.square_footage = null; }
+  else {
+    if (p.cost === null || p.cost < 1000) { markBad('p_cost'); ok = false; }
+    if (p.square_footage === null || p.square_footage < 100) { markBad('p_sf'); ok = false; }
+  }
+  if (!p.vertical) { markBad('p_vert'); ok = false; }
+  if (!p.project_type) { markBad('p_type'); ok = false; }
+  if (p.scope.length < 60) { markBad('p_scope'); ok = false; }
+  if (!p.year_completed || p.year_completed < 1960 || p.year_completed > thisYear + 5 || !Number.isInteger(p.year_completed)) { markBad('p_year'); ok = false; }
+  if (!p.city_state) { markBad('p_city'); ok = false; }
+  if (p.cost === null) p.cost = '';
+  if (p.square_footage === null) p.square_footage = '';
+  return { ok, p };
+}
+function clearProjectFields(){
+  ['pName','pCost','pSf','pScope','pArch','pYear','pCity'].forEach(k=>$(k).value='');
+  $('pVert').value=''; $('pType').value=''; $('pState').value='CA';
+}
 fill('pVert',VERTICALS,'Select');
 fill('pType',TYPES,'Select');
 
@@ -529,19 +597,10 @@ async function send(id){
 }
 
 $('addBtn').onclick = async ()=>{
-  const card = $('screenAdd'); clearBad(card);
-  const project=$('pName').value.trim();
-  const costRaw=$('pCost').value.trim(), sfRaw=$('pSf').value.trim();
-  const vert=$('pVert').value, type=$('pType').value, scope=$('pScope').value.trim();
-  const cost=num(costRaw), sf=num(sfRaw), year=num($('pYear').value);
-  let ok=true;
-  if(!project){markBad('p_name');ok=false}
-  if(cost===null){markBad('p_cost');ok=false}
-  if(sf===null){markBad('p_sf');ok=false}
-  if(!vert){markBad('p_vert');ok=false}
-  if(!type){markBad('p_type');ok=false}
-  if(!scope){markBad('p_scope');ok=false}
+  const card = $('projCard');
+  const { ok, p } = readProject(identity.role);
   if(!ok){ card.querySelector('.field.bad').scrollIntoView({behavior:'smooth',block:'center'}); return; }
+  const project = p.project_name, vert = p.vertical;
 
   // duplicate guard: warn if this project name already went in this session
   const dupe = log.some(l => l.project.toLowerCase() === project.toLowerCase());
@@ -553,10 +612,8 @@ $('addBtn').onclick = async ()=>{
 
   const id = 'p'+Date.now()+Math.random().toString(36).slice(2,6);
   const payload = {
-    name:identity.name, role:identity.role, company:identity.company,
-    project_name:project, cost:cost, square_footage:sf,
-    vertical:vert, project_type:type, architect:$('pArch').value.trim(),
-    scope:scope, year_completed:year, city_state:$('pCity').value.trim(),
+    name:identity.name, role:identity.role, company:cleanCompany(identity.company),
+    ...p,
     added_at:new Date().toISOString()
   };
   pending[id] = payload;
@@ -565,8 +622,7 @@ $('addBtn').onclick = async ()=>{
   renderLog();
 
   // clear project fields, keep identity + focus for the next one
-  ['pName','pCost','pSf','pScope','pArch','pYear','pCity'].forEach(k=>$(k).value='');
-  $('pVert').value=''; $('pType').value='';
+  clearProjectFields();
   $('pName').focus();
   window.scrollTo({top:0,behavior:'smooth'});
 
@@ -634,7 +690,8 @@ function startEdit(p){
   $('pScope').value = p.scope ?? '';
   $('pArch').value  = p.architect ?? '';
   $('pYear').value  = p.year_completed ?? '';
-  $('pCity').value  = p.city_state ?? '';
+  const place = splitPlace(p.city_state);
+  $('pCity').value  = place.city; $('pState').value = place.state;
   $('cardTitle').textContent = 'Edit project';
   card.classList.add('editing');
   renderMine();
@@ -645,29 +702,20 @@ function endEdit(){
   editing = null;
   const card = $('projCard'); clearBad(card); card.classList.remove('editing');
   $('cardTitle').textContent = 'New project';
-  ['pName','pCost','pSf','pScope','pArch','pYear','pCity'].forEach(k=>$(k).value='');
-  $('pVert').value=''; $('pType').value='';
+  clearProjectFields();
   renderMine();
 }
 $('cancelEdit').onclick = endEdit;
 
 $('saveEdit').onclick = async ()=>{
   if(!editing) return;
-  const card = $('projCard'); clearBad(card);
-  const name=$('eName').value, role=$('eRole').value, company=$('eCompany').value.trim();
-  const project=$('pName').value.trim();
-  const cost=num($('pCost').value), sf=num($('pSf').value), year=num($('pYear').value);
-  const vert=$('pVert').value, type=$('pType').value, scope=$('pScope').value.trim();
-  let ok=true;
+  const card = $('projCard');
+  const name=$('eName').value, role=$('eRole').value, company=cleanCompany($('eCompany').value);
+  const read = readProject(role);
+  let ok = read.ok;
   if(!name){markBad('e_name');ok=false}
   if(!role){markBad('e_role');ok=false}
   if(!company){markBad('e_company');ok=false}
-  if(!project){markBad('p_name');ok=false}
-  if(cost===null){markBad('p_cost');ok=false}
-  if(sf===null){markBad('p_sf');ok=false}
-  if(!vert){markBad('p_vert');ok=false}
-  if(!type){markBad('p_type');ok=false}
-  if(!scope){markBad('p_scope');ok=false}
   if(!ok){ card.querySelector('.field.bad').scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
   const btn=$('saveEdit'); btn.disabled=true; btn.textContent='Saving…';
@@ -675,9 +723,7 @@ $('saveEdit').onclick = async ()=>{
     const r = await api(UPDATE_URL, {
       index: editing.index,
       original: { name: editing.name, project_name: editing.project_name },
-      project: { name, role, company, project_name:project, cost, square_footage:sf, vertical:vert,
-        project_type:type, architect:$('pArch').value.trim(), scope, year_completed:year ?? '',
-        city_state:$('pCity').value.trim() }
+      project: { name, role, company, ...read.p }
     });
     if(r.status===409){ toast('That project moved in the sheet. Reloading your list.', false); endEdit(); loadMine(); return; }
     if(!r.ok || !r.data || !r.data.ok) throw new Error('HTTP '+r.status);
