@@ -1,0 +1,628 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Haggerty Bid Team Builder</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;600;700&family=Barlow+Semi+Condensed:wght@600;700&display=swap">
+<style>
+/* Bid Team Builder: upload an RFP, review the ranked team, export a PDF + Word packet.
+   Not linked from the staff entry app. Access needs the bid code (checked by n8n). */
+:root{
+  --ink:#1B2126; --steel:#2E3640; --muted:#69727C;
+  --bg:#EDEFF1; --card:#FFFFFF; --line:#D6DBDF; --line-2:#C2C8CD;
+  --hi:#EC5A13; --hi-dark:#B9430A; --hi-soft:#FDEBE0;
+  --ok:#1F7A34; --ok-soft:#E4F2E6; --warn:#8A5A00; --warn-soft:#FEF6E7; --err:#B4231C; --err-soft:#FBE7E6;
+  --r:10px;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{font-family:'Barlow',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;min-height:100vh;padding-bottom:4rem}
+.wrap{max-width:880px;margin:0 auto;padding:0 16px}
+.hidden{display:none!important}
+.bar{background:var(--ink);color:#fff;padding:14px 0}
+.bar .wrap{display:flex;align-items:center;gap:12px}
+.bar img{height:34px;width:auto;display:block}
+.bar h1{font-family:'Barlow Semi Condensed',system-ui,sans-serif;font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.04em}
+.bar small{display:block;font-weight:600;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9AA3AC;margin-top:1px}
+.bar .sp{flex:1}
+.bar button{background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:7px;font:600 12px 'Barlow',sans-serif;letter-spacing:.05em;text-transform:uppercase;padding:8px 11px;cursor:pointer}
+
+h2.step{font-family:'Barlow Semi Condensed',system-ui,sans-serif;font-weight:700;font-size:22px;text-transform:uppercase;margin:28px 2px 4px;display:flex;align-items:center;gap:10px}
+h2.step .n{width:28px;height:28px;border-radius:50%;background:var(--hi);color:#fff;font-size:15px;display:flex;align-items:center;justify-content:center;flex:0 0 auto}
+.sub{color:var(--muted);font-size:15px;margin:0 2px 14px}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r);padding:18px 16px;margin-bottom:14px}
+label{display:block;font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin:0 0 6px 2px}
+input,select,textarea{width:100%;font-family:'Barlow',system-ui,sans-serif;font-size:16px;color:var(--ink);background:var(--card);border:1.5px solid var(--line-2);border-radius:8px;padding:10px 12px;min-height:44px}
+textarea{min-height:120px;resize:vertical;line-height:1.45}
+input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-color:var(--hi)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:12px}
+.field{margin-bottom:12px}
+.btn{font-family:'Barlow Semi Condensed',system-ui,sans-serif;font-weight:700;font-size:18px;text-transform:uppercase;letter-spacing:.03em;border:none;border-radius:var(--r);padding:14px 20px;cursor:pointer;min-height:52px}
+.btn-hi{background:var(--hi);color:#fff}.btn-hi:hover{background:var(--hi-dark)}
+.btn-hi:disabled{background:#E6A583;cursor:default}
+.btn-ghost{background:#fff;color:var(--steel);border:1.5px solid var(--line-2)}
+.btn-ghost:hover{background:#E4E7EA}
+.btns{display:flex;gap:10px;flex-wrap:wrap}
+.btns .btn{flex:1 1 200px}
+.err{background:var(--err-soft);color:var(--err);border:1.5px solid #F1B9B5;border-radius:8px;padding:10px 12px;font-weight:600;font-size:14px;margin-top:12px}
+.note{background:var(--warn-soft);color:var(--warn);border:1.5px solid #F3D48A;border-radius:8px;padding:10px 12px;font-weight:600;font-size:14px;margin-bottom:12px}
+
+/* drop zone */
+.drop{border:2px dashed var(--line-2);border-radius:var(--r);background:#F7F8F9;padding:28px 16px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s}
+.drop:hover,.drop.over{border-color:var(--hi);background:var(--hi-soft)}
+.drop b{font-family:'Barlow Semi Condensed',sans-serif;font-size:20px;text-transform:uppercase;display:block}
+.drop span{color:var(--muted);font-size:14px}
+.file{display:flex;align-items:center;gap:10px;margin-top:12px;font-weight:600}
+.file .x{margin-left:auto;background:none;border:none;color:var(--muted);font:700 12px 'Barlow',sans-serif;text-transform:uppercase;cursor:pointer}
+.progress{margin-top:14px;display:flex;align-items:center;gap:10px;color:var(--steel);font-weight:600}
+.spin{width:20px;height:20px;border:3px solid var(--line);border-top-color:var(--hi);border-radius:50%;animation:sp 0.8s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* summary */
+.req{margin-top:6px}
+.req li{margin:0 0 4px 18px;font-size:14.5px}
+.req b{font-weight:700;color:var(--steel)}
+.kw{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.kw span{background:#EEF0F2;border-radius:20px;padding:3px 10px;font-size:13px;font-weight:600;color:var(--steel)}
+
+/* positions */
+.pos{margin-bottom:22px}
+.pos h3{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;font-size:17px;text-transform:uppercase;letter-spacing:.04em;color:var(--steel);margin:0 2px 8px;display:flex;align-items:baseline;gap:8px}
+.pos h3 small{font-family:'Barlow',sans-serif;font-weight:600;font-size:12px;color:var(--muted);text-transform:none;letter-spacing:0}
+.cand{background:var(--card);border:1.5px solid var(--line);border-radius:var(--r);margin-bottom:8px;overflow:hidden}
+.cand.on{border-color:var(--hi);box-shadow:0 0 0 3px var(--hi-soft)}
+.cand .top{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer}
+.cand .top input[type=checkbox]{width:22px;height:22px;min-height:0;flex:0 0 auto;accent-color:var(--hi)}
+.cand .who{flex:1;min-width:0}
+.cand .who b{font-size:16px;display:block}
+.cand .who span{font-size:13px;color:var(--muted)}
+.score{width:86px;flex:0 0 auto;text-align:right}
+.score b{font-family:'Barlow Semi Condensed',sans-serif;font-size:22px;color:var(--hi-dark)}
+.score .meter{height:5px;background:#EEF0F2;border-radius:3px;margin-top:3px;overflow:hidden}
+.score .meter i{display:block;height:100%;background:var(--hi)}
+.chip{display:inline-block;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;border-radius:5px;padding:2px 7px;margin:4px 6px 0 0}
+.chip.open{background:var(--ok-soft);color:var(--ok)}
+.chip.partial{background:var(--warn-soft);color:var(--warn)}
+.chip.busy{background:var(--err-soft);color:var(--err)}
+.chip.not_tracked{background:#EEF0F2;color:var(--muted)}
+.chip.why{background:var(--hi-soft);color:var(--hi-dark);text-transform:none;letter-spacing:0;font-weight:600}
+.cand .body{border-top:1.5px solid var(--line);padding:14px;background:#FAFBFB}
+.cand .body .lbl{font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin:12px 0 6px}
+.cand .body .lbl:first-child{margin-top:0}
+.proj{display:flex;gap:10px;align-items:flex-start;padding:8px 0;border-bottom:1px solid var(--line);
+  text-transform:none;letter-spacing:0;font-weight:400;font-size:inherit;color:var(--ink);margin:0;cursor:pointer}
+.proj:last-child{border-bottom:none}
+.proj input{width:18px;height:18px;min-height:0;margin-top:3px;flex:0 0 auto;accent-color:var(--hi)}
+.proj div{flex:1;min-width:0;font-size:14px}
+.proj div b{display:block;font-size:14.5px}
+.proj div span{color:var(--muted);font-size:13px}
+.proj .m{font-family:'Barlow Semi Condensed',sans-serif;font-weight:700;color:var(--hi-dark);flex:0 0 auto}
+.avail{font-size:13px;color:var(--muted);margin-top:8px}
+.more{background:none;border:none;color:var(--hi-dark);font:700 12px 'Barlow',sans-serif;letter-spacing:.05em;text-transform:uppercase;cursor:pointer;padding:4px 2px}
+
+.sticky{position:sticky;bottom:0;z-index:30;background:linear-gradient(to top,var(--bg) 70%,rgba(237,239,241,0));padding:16px 0 12px;margin-top:10px}
+.sel{font-weight:600;color:var(--steel);margin-bottom:8px;font-size:14px}
+.toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%) translateY(160%);background:var(--ink);color:#fff;padding:13px 20px;border-radius:var(--r);font-weight:600;font-size:15px;box-shadow:0 8px 24px rgba(0,0,0,.28);z-index:60;transition:transform .28s}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.gate{max-width:420px;margin:60px auto 0}
+@media (max-width:560px){ .score{width:62px} .cand .top{gap:9px} }
+@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+</head>
+<body>
+
+<div class="bar"><div class="wrap">
+  <img id="barLogo" alt="Haggerty">
+  <div><h1>Bid Team Builder</h1><small>Individual Portfolio</small></div>
+  <div class="sp"></div>
+  <button id="startOver" class="hidden">New RFP</button>
+</div></div>
+
+<!-- ACCESS CODE -->
+<div class="wrap gate hidden" id="gate">
+  <div class="card">
+    <label for="codeIn">Bid access code</label>
+    <input id="codeIn" type="password" autocomplete="off" placeholder="HB-XXXX-XXXX">
+    <div class="btns" style="margin-top:12px"><button class="btn btn-hi" id="codeBtn">Unlock</button></div>
+    <div id="codeErr" class="err hidden"></div>
+  </div>
+</div>
+
+<div class="wrap hidden" id="app">
+
+  <!-- STEP 1 -->
+  <h2 class="step"><span class="n">1</span>Upload the RFP</h2>
+  <div class="sub">PDF, Word (.docx) or text. The whole document is read to find the project type, size, location and team requirements.</div>
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose RFP file">
+      <b>Drop the RFP here</b><span>or tap to choose a file</span>
+    </div>
+    <input type="file" id="fileIn" accept=".pdf,.docx,.txt,.md,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document,text/plain" class="hidden">
+    <div class="file hidden" id="fileRow"><span id="fileName"></span><button class="x" id="fileClear">Remove</button></div>
+    <div class="btns" style="margin-top:14px"><button class="btn btn-hi" id="runBtn" disabled>Find the team</button></div>
+    <div class="progress hidden" id="progress"><div class="spin"></div><span id="progressMsg">Reading the RFP…</span></div>
+    <div class="err hidden" id="runErr"></div>
+  </div>
+
+  <div id="results" class="hidden">
+    <!-- STEP 2 -->
+    <h2 class="step"><span class="n">2</span>Check the project</h2>
+    <div class="sub">Pulled from the RFP. Fix anything that's off; it prints on the packet cover.</div>
+    <div class="card">
+      <div class="grid">
+        <div class="field"><label>Project</label><input id="tProject"></div>
+        <div class="field"><label>Owner / agency</label><input id="tOwner"></div>
+        <div class="field"><label>Location</label><input id="tCity"></div>
+      </div>
+      <div class="grid">
+        <div class="field"><label>Est. value</label><input id="tCost"></div>
+        <div class="field"><label>Square footage</label><input id="tSf"></div>
+        <div class="field"><label>Delivery</label><input id="tDelivery"></div>
+        <div class="field"><label>Proposal due</label><input id="tDue"></div>
+      </div>
+      <div class="field"><label>Matched as</label><div id="tMatched" style="font-size:15px;padding-left:2px"></div></div>
+      <div class="field"><label>Scope keywords used for matching</label><div class="kw" id="tKw"></div></div>
+      <div class="field" id="reqWrap"><label>Team requirements in the RFP</label><ul class="req" id="tReq"></ul></div>
+      <div class="note hidden" id="tPacketReq"></div>
+    </div>
+
+    <!-- STEP 3 -->
+    <h2 class="step"><span class="n">3</span>Pick the team</h2>
+    <div class="sub">Ranked by how closely each person's submitted projects match this RFP. The top pick in each role is checked. Tap a name to edit the bio and choose which projects print.</div>
+    <div class="note hidden" id="availNote"></div>
+    <div id="positions"></div>
+
+    <!-- STEP 4 -->
+    <h2 class="step"><span class="n">4</span>Build the packet</h2>
+    <div class="card">
+      <div class="grid">
+        <div class="field"><label>Prepared for</label><input id="pFor"></div>
+        <div class="field"><label>Submittal date</label><input id="pDate"></div>
+      </div>
+      <div class="field"><label>Section title</label><input id="pTitle" value="Key Personnel"></div>
+    </div>
+    <div class="sticky">
+      <div class="sel" id="selCount"></div>
+      <div class="btns">
+        <button class="btn btn-hi" id="pdfBtn">Download PDF</button>
+        <button class="btn btn-ghost" id="docBtn">Download Word</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script>
+/* ==========================================================================
+   CONFIG
+   ========================================================================== */
+const MATCH_URL = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-bid-match";
+const BRAND = { orange: "#F68922", ink: "#1B2126", steel: "#2E3640", muted: "#69727C", line: "#D6DBDF" };
+const COMPANY = { name: "Haggerty Construction", city: "Stockton, CA" };
+// Logo mark used on the page and the packet. Swap in the official logo file here (PNG data URL).
+const LOGO = "data:image/png;base64,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";
+const MAX_PROJECTS_PRINTED = 4;      // per resume page
+
+/* ========================================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }, del(k){ try{ localStorage.removeItem(k); }catch(e){} } };
+const toast = msg => { const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("show"),2600); };
+const num = v => { const n = parseFloat(String(v ?? "").replace(/[^0-9.\-]/g, "")); return isNaN(n) ? null : n; };
+const money = v => { const n = num(v); if (n === null || n < 10000) return ""; return n >= 1e6 ? "$" + (Math.round(n / 1e5) / 10).toLocaleString() + "M" : "$" + Math.round(n).toLocaleString(); };
+const sqft = v => { const n = num(v); return n && n >= 100 ? Math.round(n).toLocaleString() + " SF" : ""; };
+const firstLast = n => { const [l, f] = String(n).split(",").map(s => s.trim()); return f ? f + " " + l : String(n).trim(); };
+const today = () => new Date().toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+$("barLogo").src = LOGO;
+
+let code = store.get("bidCode");
+let file = null;
+let result = null;     // response from n8n
+let picks = {};        // "pos|name" -> { on, bio, projects:Set(index) }
+
+/* ---------- access gate ---------- */
+function showApp(){ $("gate").classList.add("hidden"); $("app").classList.remove("hidden"); }
+function showGate(msg){ $("app").classList.add("hidden"); $("gate").classList.remove("hidden"); if(msg){ $("codeErr").textContent=msg; $("codeErr").classList.remove("hidden"); } }
+$("codeBtn").onclick = () => { const v=$("codeIn").value.trim(); if(!v) return; code=v; store.set("bidCode", v); $("codeErr").classList.add("hidden"); showApp(); };
+$("codeIn").addEventListener("keydown", e => { if(e.key==="Enter") $("codeBtn").click(); });
+if (code) showApp(); else showGate();
+
+/* ---------- file pick ---------- */
+const drop = $("drop");
+drop.onclick = () => $("fileIn").click();
+drop.onkeydown = e => { if(e.key==="Enter"||e.key===" "){ e.preventDefault(); $("fileIn").click(); } };
+["dragenter","dragover"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add("over"); }));
+["dragleave","drop"].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove("over"); }));
+drop.addEventListener("drop", e => { if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+$("fileIn").onchange = e => { if(e.target.files[0]) setFile(e.target.files[0]); };
+$("fileClear").onclick = () => setFile(null);
+function setFile(f){
+  file = f; $("runErr").classList.add("hidden");
+  $("fileRow").classList.toggle("hidden", !f); drop.classList.toggle("hidden", !!f);
+  $("fileName").textContent = f ? `${f.name} (${(f.size/1048576).toFixed(1)} MB)` : "";
+  $("runBtn").disabled = !f; if(!f) $("fileIn").value = "";
+}
+
+/* ---------- read the file in the browser ---------- */
+async function readFile(f){
+  const name = f.name.toLowerCase();
+  if (name.endsWith(".pdf") || f.type === "application/pdf") {
+    const buf = await f.arrayBuffer();
+    let text = "";
+    try {
+      pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+      const pdf = await pdfjsLib.getDocument({ data: buf.slice(0) }).promise;
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const pg = await pdf.getPage(i); const c = await pg.getTextContent();
+        text += c.items.map(it => it.str).join(" ") + "\n\n";
+        if (text.length > 200000) break;
+      }
+    } catch (e) { text = ""; }
+    if (text.replace(/\s+/g, "").length >= 800) return { rfp_text: text };
+    // little or no text layer (scanned): send the PDF itself if it's small enough
+    if (f.size > 15 * 1048576) throw new Error("This PDF looks scanned and is over 15 MB. Save a smaller copy or a text-searchable version and try again.");
+    const b64 = await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result).split(",")[1]); r.onerror = rej; r.readAsDataURL(f); });
+    return { rfp_pdf_base64: b64 };
+  }
+  if (name.endsWith(".docx")) {
+    const out = await mammoth.extractRawText({ arrayBuffer: await f.arrayBuffer() });
+    return { rfp_text: out.value };
+  }
+  if (name.endsWith(".doc")) throw new Error("Older .doc files can't be read here. Save it as .docx or PDF.");
+  return { rfp_text: await f.text() };
+}
+
+/* ---------- run ---------- */
+$("runBtn").onclick = async () => {
+  if (!file) return;
+  const btn = $("runBtn"); btn.disabled = true; $("runErr").classList.add("hidden");
+  $("progress").classList.remove("hidden");
+  const msgs = ["Reading the RFP…", "Pulling everyone's project history…", "Ranking people for each role…", "Writing tailored bios…", "Almost there…"];
+  let mi = 0; $("progressMsg").textContent = msgs[0];
+  const tick = setInterval(() => { mi = Math.min(mi + 1, msgs.length - 1); $("progressMsg").textContent = msgs[mi]; }, 9000);
+  try {
+    const payload = await readFile(file);
+    payload.file_name = file.name;
+    const res = await fetch(MATCH_URL, { method: "POST", headers: { "Content-Type": "application/json", "x-bid-code": code }, body: JSON.stringify(payload) });
+    let data = null; try { data = await res.json(); } catch (e) {}
+    if (res.status === 401) { store.del("bidCode"); code = null; showGate("That access code didn't work. Enter it again."); return; }
+    if (!res.ok || !data || !data.ok) throw new Error(data && data.error === "rfp_read_failed" ? "The RFP couldn't be read. " + (data.detail || "") : "Something went wrong (" + res.status + "). Try again in a minute.");
+    load(data);
+  } catch (e) {
+    $("runErr").textContent = e.message || "Something went wrong. Try again.";
+    $("runErr").classList.remove("hidden");
+  } finally {
+    clearInterval(tick); $("progress").classList.add("hidden"); btn.disabled = false;
+  }
+};
+
+$("startOver").onclick = () => { result = null; picks = {}; setFile(null); $("results").classList.add("hidden"); $("startOver").classList.add("hidden"); window.scrollTo({ top: 0, behavior: "smooth" }); };
+
+/* ---------- show results ---------- */
+const POS_SHORT = { pm: "PM", sup: "Superintendent", pe: "PE / APM", est: "Estimator" };
+function load(data){
+  result = data; picks = {};
+  const t = data.traits || {};
+  $("tProject").value = t.project_name || "";
+  $("tOwner").value = t.owner || "";
+  $("tCity").value = t.city || "";
+  $("tCost").value = money(t.estimated_cost);
+  $("tSf").value = sqft(t.square_footage);
+  $("tDelivery").value = t.delivery_method || "";
+  $("tDue").value = t.submission_due || "";
+  $("tMatched").textContent = [t.closest_vertical, t.project_type !== "Unknown" ? t.project_type : "", t.sector && t.sector !== t.closest_vertical ? `(RFP says: ${t.sector})` : ""].filter(Boolean).join(" · ");
+  $("tKw").innerHTML = (t.scope_keywords || []).map(k => `<span>${esc(k)}</span>`).join("") || '<span>none</span>';
+  const reqs = t.team_requirements || [];
+  $("reqWrap").classList.toggle("hidden", !reqs.length);
+  $("tReq").innerHTML = reqs.map(r => `<li><b>${esc(POS_SHORT[r.position] || "Other")}:</b> ${esc(r.requirement)}</li>`).join("");
+  $("tPacketReq").classList.toggle("hidden", !t.packet_requirements);
+  $("tPacketReq").textContent = t.packet_requirements ? "Packet format in the RFP: " + t.packet_requirements : "";
+  $("pFor").value = t.owner || "";
+  $("pDate").value = today();
+
+  const notes = [];
+  if (!data.availability_ok) notes.push("The 3-week look-ahead couldn't be reached, so availability isn't shown.");
+  if (!data.bios_ok) notes.push("Tailored bios didn't come back this time; starter bios are filled in from each person's projects. Edit before sending.");
+  $("availNote").classList.toggle("hidden", !notes.length);
+  $("availNote").textContent = notes.join(" ");
+
+  for (const pos of data.positions) pos.candidates.forEach((c, i) => {
+    picks[pos.key + "|" + c.name] = { on: i === 0, bio: c.bio || starterBio(c, pos), projects: new Set(c.projects.slice(0, MAX_PROJECTS_PRINTED).map((_, j) => j)) };
+  });
+  renderPositions();
+  $("results").classList.remove("hidden"); $("startOver").classList.remove("hidden");
+  $("results").scrollIntoView({ behavior: "smooth" });
+}
+
+function starterBio(c, pos){
+  const top = c.projects.slice(0, 3).map(p => p.project_name).filter(Boolean);
+  return `${firstLast(c.name)} is a ${c.current_role} with ${c.company}. ` +
+    (top.length ? `Relevant work includes ${top.slice(0, -1).join(", ")}${top.length > 1 ? " and " : ""}${top[top.length - 1]}.` : "");
+}
+
+function renderPositions(){
+  const wrap = $("positions"); wrap.innerHTML = "";
+  for (const pos of result.positions) {
+    const div = document.createElement("div"); div.className = "pos";
+    div.innerHTML = `<h3>${esc(pos.label)} <small>${pos.candidates.length ? pos.candidates.length + " ranked" : "nobody in the sheet for this role yet"}</small></h3>`;
+    const max = Math.max(1, ...pos.candidates.map(c => c.score));
+    pos.candidates.forEach((c, i) => {
+      const id = pos.key + "|" + c.name, pk = picks[id];
+      const el = document.createElement("div"); el.className = "cand" + (pk.on ? " on" : "");
+      const seen = new Set(), why = [];
+      for (const r of c.projects.flatMap(p => p.reasons)) { const k = String(r).toLowerCase().replace(/[^a-z0-9]/g, ""); if (!seen.has(k)) { seen.add(k); why.push(r); } }
+      why.splice(4);
+      const avLabel = { open: "Open", partial: "1 active job", busy: "Busy", not_tracked: "Availability unknown" }[c.availability.status] || "";
+      el.innerHTML = `
+        <div class="top">
+          <input type="checkbox" ${pk.on ? "checked" : ""} aria-label="Include ${esc(firstLast(c.name))}">
+          <div class="who"><b>${esc(firstLast(c.name))}</b>
+            <span>${esc(c.current_role)} · ${esc(c.company)} · ${c.project_count} project${c.project_count === 1 ? "" : "s"} on file</span>
+            <div><span class="chip ${c.availability.status}">${avLabel}</span>${why.map(w => `<span class="chip why">${esc(w)}</span>`).join("")}</div>
+            ${c.role_note ? `<span>${esc(c.role_note)}</span>` : ""}
+          </div>
+          <div class="score"><b>${Math.max(0, c.score)}</b><div class="meter"><i style="width:${Math.max(4, Math.round(100 * Math.max(0, c.score) / max))}%"></i></div></div>
+        </div>
+        <div class="body ${pk.on ? "" : "hidden"}">
+          <div class="lbl">Bio</div>
+          <textarea>${esc(pk.bio)}</textarea>
+          <div class="lbl">Projects to print (best match first, up to ${MAX_PROJECTS_PRINTED} fit on a page)</div>
+          ${c.projects.map((p, j) => `
+            <label class="proj"><input type="checkbox" data-j="${j}" ${pk.projects.has(j) ? "checked" : ""}>
+              <div><b>${esc(p.project_name)}</b><span>${esc([p.city_state, p.vertical, p.project_type, sqft(p.square_footage), money(p.cost), p.year_completed].filter(Boolean).join(" · "))}</span></div>
+              <span class="m">${p.match}</span></label>`).join("")}
+          <div class="avail">${esc(c.availability.detail)}</div>
+        </div>`;
+      const cb = el.querySelector(".top input");
+      el.querySelector(".top").onclick = e => {
+        if (e.target !== cb) { if (!pk.on) { cb.checked = true; } else { el.querySelector(".body").classList.toggle("hidden"); return; } }
+        pk.on = cb.checked; el.classList.toggle("on", pk.on); el.querySelector(".body").classList.toggle("hidden", !pk.on); updateCount();
+      };
+      el.querySelector("textarea").oninput = e => { pk.bio = e.target.value; };
+      el.querySelectorAll(".proj input").forEach(x => x.onchange = () => {
+        const j = +x.dataset.j;
+        if (x.checked) { if (pk.projects.size >= MAX_PROJECTS_PRINTED) { x.checked = false; toast(`Up to ${MAX_PROJECTS_PRINTED} projects fit on one page`); return; } pk.projects.add(j); }
+        else pk.projects.delete(j);
+      });
+      div.appendChild(el);
+    });
+    wrap.appendChild(div);
+  }
+  updateCount();
+}
+
+function selected(){
+  const out = [];
+  for (const pos of result.positions) for (const c of pos.candidates) {
+    const pk = picks[pos.key + "|" + c.name];
+    if (pk.on) out.push({ pos, c, bio: pk.bio.trim(), projects: c.projects.filter((_, j) => pk.projects.has(j)) });
+  }
+  return out;
+}
+function updateCount(){
+  const n = selected().length;
+  $("selCount").textContent = n ? `${n} ${n === 1 ? "person" : "people"} in the packet` : "Check at least one person to build the packet";
+  $("pdfBtn").disabled = $("docBtn").disabled = !n;
+}
+
+/* ---------- packet model (shared by PDF and Word) ---------- */
+function packet(){
+  const people = selected();
+  const projectName = $("tProject").value.trim() || "Proposed Project";
+  return {
+    title: $("pTitle").value.trim() || "Key Personnel",
+    project: projectName,
+    owner: $("pFor").value.trim(),
+    city: $("tCity").value.trim(),
+    date: $("pDate").value.trim(),
+    facts: [["Location", $("tCity").value], ["Value", $("tCost").value], ["Size", $("tSf").value], ["Delivery", $("tDelivery").value]].filter(f => String(f[1] || "").trim()),
+    people: people.map(({ pos, c, bio, projects }) => ({
+      name: firstLast(c.name), role: pos.label === "Project Engineer / APM" ? (c.current_role === "Assistant Project Manager" ? "Assistant Project Manager" : "Project Engineer") : pos.label,
+      title: c.current_role, company: c.company, bio, highlights: c.highlights || [],
+      projects: projects.map(p => ({ name: p.project_name, meta: [p.city_state, p.vertical, p.project_type].filter(Boolean).join(" · "),
+        size: [sqft(p.square_footage), money(p.cost), p.year_completed ? "Completed " + p.year_completed : ""].filter(Boolean).join(" · "),
+        role: p.role + (p.company && p.company !== COMPANY.name ? " (" + p.company + ")" : ""),
+        scope: trimScope(p.scope) }))
+    })),
+    fileBase: ("Haggerty Key Personnel - " + projectName).replace(/[\\/:*?"<>|]+/g, "").slice(0, 90)
+  };
+}
+function trimScope(s){
+  s = String(s || "").replace(/\s+/g, " ").trim();
+  if (s.length <= 360) return s;
+  const cut = s.slice(0, 360); const dot = cut.lastIndexOf(". ");
+  return (dot > 200 ? cut.slice(0, dot + 1) : cut.replace(/\s+\S*$/, "") + "…");
+}
+
+/* ---------- PDF (pdfmake) ---------- */
+function buildPdf(P){
+  const O = BRAND.orange, INK = BRAND.ink, MUTED = BRAND.muted;
+  const footer = (cur, total) => cur === 1
+    ? { text: (P.date ? P.date + "  ·  " : "") + COMPANY.name + "  ·  " + COMPANY.city, fontSize: 9, color: MUTED, margin: [48, 10, 48, 0] }
+    : ({ margin: [48, 10, 48, 0], columns: [
+    { text: `${COMPANY.name}  |  ${P.title}  |  ${P.project}`, fontSize: 8, color: MUTED },
+    { text: String(cur), alignment: "right", fontSize: 8, color: MUTED, width: 30 } ] });
+  const content = [];
+
+  // cover
+  content.push(
+    { canvas: [{ type: "rect", x: -48, y: -48, w: 612, h: 300, color: INK }, { type: "rect", x: -48, y: 252, w: 612, h: 8, color: O }], absolutePosition: { x: 48, y: 48 } },
+    { image: LOGO, width: 56, absolutePosition: { x: 48, y: 52 } },
+    { text: "HAGGERTY", absolutePosition: { x: 114, y: 62 }, fontSize: 22, bold: true, color: "#F3F1EC", characterSpacing: 3 },
+    { text: "CONSTRUCTION", absolutePosition: { x: 115, y: 89 }, fontSize: 9, bold: true, color: "#9AA3AC", characterSpacing: 4 },
+    { text: P.title.toUpperCase(), absolutePosition: { x: 48, y: 170 }, fontSize: 30, bold: true, color: "#FFFFFF" },
+    { text: "Proposed Project Team", absolutePosition: { x: 48, y: 210 }, fontSize: 13, color: O, bold: true },
+    { text: "", margin: [0, 290, 0, 0] },
+    { text: P.project, fontSize: 24, bold: true, color: INK, margin: [0, 0, 0, 6] },
+    P.owner ? { text: "Prepared for " + P.owner, fontSize: 13, color: MUTED, margin: [0, 0, 0, 22] } : { text: "", margin: [0, 0, 0, 16] },
+    P.facts.length ? { table: { widths: [90, "*"], body: P.facts.map(f => [{ text: f[0].toUpperCase(), fontSize: 9, bold: true, color: MUTED, characterSpacing: 1 }, { text: f[1], fontSize: 12, color: INK }]) },
+      layout: { hLineWidth: (i, n) => (i === 0 || i === n.table.body.length) ? 0 : 0.7, vLineWidth: () => 0, hLineColor: () => BRAND.line, paddingTop: () => 7, paddingBottom: () => 7, paddingLeft: () => 0 } } : "",
+    { text: "", margin: [0, 30, 0, 0] },
+    { text: "PROPOSED TEAM", fontSize: 9, bold: true, color: MUTED, characterSpacing: 1, margin: [0, 0, 0, 6] },
+    ...P.people.map(p => ({ columns: [{ text: p.name, bold: true, fontSize: 12, width: 200 }, { text: p.role, fontSize: 12, color: MUTED }], margin: [0, 0, 0, 4] }))
+  );
+
+  // org chart
+  content.push({ text: "", pageBreak: "before" },
+    { text: "PROJECT ORGANIZATION", fontSize: 9, bold: true, color: O, characterSpacing: 1.5 },
+    { text: P.project, fontSize: 20, bold: true, color: INK, margin: [0, 2, 0, 24] });
+  const box = (t1, t2, fill, color, w) => ({ table: { widths: [w || 220], body: [[{ stack: [{ text: t1, bold: true, fontSize: 12, color }, t2 ? { text: t2, fontSize: 9.5, color: color === "#FFFFFF" ? "#D9DDE1" : MUTED, margin: [0, 2, 0, 0] } : ""], fillColor: fill, alignment: "center", margin: [8, 9, 8, 9] }]] },
+    layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => fill === "#FFFFFF" ? BRAND.line : fill, vLineColor: () => fill === "#FFFFFF" ? BRAND.line : fill } });
+  const center = (node) => ({ columns: [{ width: "*", text: "" }, { width: "auto", ...node }, { width: "*", text: "" }] });
+  // fresh object each time: pdfmake mutates nodes during layout, so a shared node draws in the wrong place
+  const vline = () => ({ canvas: [{ type: "line", x1: 258, y1: 0, x2: 258, y2: 18, lineWidth: 2, lineColor: O }] });
+  if (P.owner) { content.push(center(box(P.owner, "Owner", "#FFFFFF", INK)), vline()); }
+  content.push(center(box(COMPANY.name, "General Contractor", INK, "#FFFFFF")), vline());
+  const order = ["Project Manager", "Superintendent", "Project Engineer", "Assistant Project Manager", "Estimator"];
+  const sorted = P.people.slice().sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
+  const rows = []; for (let i = 0; i < sorted.length; i += 3) rows.push(sorted.slice(i, i + 3));
+  rows.forEach((r, ri) => {
+    content.push({ columns: [{ width: "*", text: "" }, ...r.map(p => ({ width: 160, ...box(p.name, p.role, "#FFFFFF", INK, 144), margin: [6, 0, 6, 0] })), { width: "*", text: "" }], columnGap: 0, margin: [0, ri ? 12 : 0, 0, 0] });
+  });
+  content.push({ text: "", margin: [0, 26, 0, 0] },
+    { table: { headerRows: 1, widths: ["*", "*", "*"], body: [
+      ["NAME", "PROJECT ROLE", "CURRENT TITLE"].map(h => ({ text: h, fontSize: 8.5, bold: true, color: MUTED, characterSpacing: 1 })),
+      ...sorted.map(p => [{ text: p.name, bold: true, fontSize: 10.5 }, { text: p.role, fontSize: 10.5 }, { text: p.title, fontSize: 10.5, color: MUTED }]) ] },
+      layout: { hLineWidth: (i) => i === 1 ? 1.2 : 0.6, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? O : BRAND.line, paddingTop: () => 6, paddingBottom: () => 6, paddingLeft: () => 0 } });
+
+  // resumes
+  for (const p of sorted) {
+    content.push({ text: "", pageBreak: "before" },
+      { columns: [
+        { width: "*", stack: [
+          { text: p.role.toUpperCase(), fontSize: 9, bold: true, color: O, characterSpacing: 1.5 },
+          { text: p.name, fontSize: 24, bold: true, color: INK, margin: [0, 2, 0, 2] },
+          { text: `${p.title}, ${p.company}`, fontSize: 11, color: MUTED } ] },
+        { width: 40, image: LOGO, fit: [36, 36], alignment: "right" } ] },
+      { canvas: [{ type: "rect", x: 0, y: 10, w: 48, h: 3, color: O }], margin: [0, 0, 0, 14] },
+      { text: p.bio, fontSize: 10.5, lineHeight: 1.3, color: INK, margin: [0, 0, 0, 10] });
+    if (p.highlights.length) content.push({ ul: p.highlights.map(h => ({ text: h, fontSize: 10, color: INK })), markerColor: O, margin: [0, 0, 0, 14] });
+    if (p.projects.length) {
+      content.push({ text: "RELEVANT EXPERIENCE", fontSize: 9, bold: true, color: MUTED, characterSpacing: 1.5, margin: [0, 4, 0, 6] });
+      p.projects.forEach(x => content.push({ unbreakable: true, table: { widths: [3, "*"], body: [[{ text: "", fillColor: O }, { stack: [
+        { text: x.name, bold: true, fontSize: 11.5, color: INK },
+        { text: [x.meta, x.size].filter(Boolean).join("  ·  "), fontSize: 9, color: MUTED, margin: [0, 1, 0, 2] },
+        { text: [{ text: "Role: ", bold: true }, x.role], fontSize: 9.5, color: INK, margin: [0, 0, 0, 2] },
+        x.scope ? { text: x.scope, fontSize: 9.5, color: INK, lineHeight: 1.2 } : "" ], margin: [8, 2, 0, 2] }]] },
+        layout: "noBorders", margin: [0, 0, 0, 10] }));
+    }
+  }
+
+  return { pageSize: "LETTER", pageMargins: [48, 48, 48, 50], content, footer,
+    defaultStyle: { font: "Roboto", fontSize: 10.5 },
+    info: { title: `${P.title}: ${P.project}`, author: COMPANY.name } };
+}
+
+/* ---------- Word (docx) ---------- */
+async function buildDocx(P){
+  const D = docx;
+  const O = BRAND.orange.slice(1), INK = BRAND.ink.slice(1), MUTED = BRAND.muted.slice(1), LINE = BRAND.line.slice(1);
+  const logoBytes = Uint8Array.from(atob(LOGO.split(",")[1]), c => c.charCodeAt(0));
+  const T = (text, o = {}) => new D.TextRun({ text: String(text ?? ""), font: "Calibri", ...o });
+  const para = (runs, o = {}) => new D.Paragraph({ children: Array.isArray(runs) ? runs : [runs], ...o });
+  const label = (t, color = MUTED) => para(T(t.toUpperCase(), { bold: true, size: 17, color, characterSpacing: 30 }), { spacing: { after: 60 } });
+  const none = { style: D.BorderStyle.NONE, size: 0, color: "FFFFFF" };
+  const noBorders = { top: none, bottom: none, left: none, right: none, insideHorizontal: none, insideVertical: none };
+  const footer = new D.Footer({ children: [para([T(`${COMPANY.name}  |  ${P.title}  |  ${P.project}    `, { size: 16, color: MUTED }), new D.TextRun({ children: [D.PageNumber.CURRENT], size: 16, color: MUTED, font: "Calibri" })])] });
+
+  // cover
+  const cover = [
+    new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, borders: noBorders, rows: [new D.TableRow({ children: [new D.TableCell({
+      shading: { fill: INK, type: D.ShadingType.CLEAR, color: "auto" }, margins: { top: 300, bottom: 300, left: 300, right: 300 },
+      borders: { top: none, left: none, right: none, bottom: { style: D.BorderStyle.SINGLE, size: 36, color: O } },
+      children: [
+        para([new D.ImageRun({ data: logoBytes, transformation: { width: 48, height: 48 } }), T("   HAGGERTY", { bold: true, size: 40, color: "F3F1EC", characterSpacing: 60 })]),
+        para(T("CONSTRUCTION", { bold: true, size: 16, color: "9AA3AC", characterSpacing: 80 }), { indent: { left: 900 }, spacing: { after: 900 } }),
+        para(T(P.title.toUpperCase(), { bold: true, size: 56, color: "FFFFFF" })),
+        para(T("Proposed Project Team", { bold: true, size: 26, color: O }), { spacing: { after: 120 } }) ] })] })] }),
+    para(T(""), { spacing: { after: 600 } }),
+    para(T(P.project, { bold: true, size: 48, color: INK }), { spacing: { after: 100 } }),
+    P.owner ? para(T("Prepared for " + P.owner, { size: 26, color: MUTED }), { spacing: { after: 360 } }) : para(T("")),
+    ...P.facts.map(f => para([T(f[0].toUpperCase() + "     ", { bold: true, size: 17, color: MUTED }), T(f[1], { size: 24, color: INK })], { spacing: { after: 100 }, border: { bottom: { style: D.BorderStyle.SINGLE, size: 4, color: LINE, space: 4 } } })),
+    para(T(""), { spacing: { after: 300 } }),
+    label("Proposed team"),
+    ...P.people.map(p => para([T(p.name, { bold: true, size: 24 }), new D.TextRun({ text: "\t" + p.role, size: 24, color: MUTED, font: "Calibri" })], { tabStops: [{ type: D.TabStopType.LEFT, position: 4200 }], spacing: { after: 60 } })),
+    para(T(""), { spacing: { after: 600 } }),
+    para(T((P.date ? P.date + "  ·  " : "") + COMPANY.name + "  ·  " + COMPANY.city, { size: 18, color: MUTED })),
+  ];
+
+  // org chart page
+  const order = ["Project Manager", "Superintendent", "Project Engineer", "Assistant Project Manager", "Estimator"];
+  const sorted = P.people.slice().sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
+  const cellBox = (t1, t2, dark) => new D.TableCell({ shading: { fill: dark ? INK : "FFFFFF", type: D.ShadingType.CLEAR, color: "auto" }, margins: { top: 140, bottom: 140, left: 120, right: 120 },
+    borders: { top: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, bottom: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, left: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, right: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE } },
+    children: [para(T(t1, { bold: true, size: 22, color: dark ? "FFFFFF" : INK }), { alignment: D.AlignmentType.CENTER }), para(T(t2, { size: 18, color: dark ? "D9DDE1" : MUTED }), { alignment: D.AlignmentType.CENTER })] });
+  const single = (t1, t2, dark) => new D.Table({ alignment: D.AlignmentType.CENTER, width: { size: 4400, type: D.WidthType.DXA }, rows: [new D.TableRow({ children: [cellBox(t1, t2, dark)] })] });
+  const arrow = () => para(T("|", { color: LINE, size: 28 }), { alignment: D.AlignmentType.CENTER, spacing: { before: 40, after: 40 } });
+  const rowsOf3 = []; for (let i = 0; i < sorted.length; i += 3) rowsOf3.push(sorted.slice(i, i + 3));
+  const org = [
+    label("Project organization", O),
+    para(T(P.project, { bold: true, size: 40, color: INK }), { spacing: { after: 360 } }),
+    ...(P.owner ? [single(P.owner, "Owner", false), arrow()] : []),
+    single(COMPANY.name, "General Contractor", true), arrow(),
+    ...rowsOf3.flatMap((r, i) => [new D.Table({ alignment: D.AlignmentType.CENTER, width: { size: 3200 * r.length, type: D.WidthType.DXA },
+      borders: { ...noBorders }, rows: [new D.TableRow({ children: r.flatMap((p, j) => [cellBox(p.name, p.role, false), ...(j < r.length - 1 ? [new D.TableCell({ width: { size: 200, type: D.WidthType.DXA }, borders: { top: none, bottom: none, left: none, right: none }, children: [para(T(""))] })] : [])]) })] }),
+      para(T(""), { spacing: { after: i < rowsOf3.length - 1 ? 160 : 400 } })]),
+    new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, borders: { ...noBorders, insideHorizontal: { style: D.BorderStyle.SINGLE, size: 4, color: LINE } },
+      rows: [new D.TableRow({ tableHeader: true, children: ["NAME", "PROJECT ROLE", "CURRENT TITLE"].map(h => new D.TableCell({ borders: { bottom: { style: D.BorderStyle.SINGLE, size: 10, color: O }, top: none, left: none, right: none }, children: [para(T(h, { bold: true, size: 16, color: MUTED }))] })) }),
+        ...sorted.map(p => new D.TableRow({ children: [T(p.name, { bold: true, size: 21 }), T(p.role, { size: 21 }), T(p.title, { size: 21, color: MUTED })].map(r => new D.TableCell({ margins: { top: 80, bottom: 80 }, children: [para(r)] })) }))] }),
+  ];
+
+  // resume pages
+  const resumes = sorted.map(p => ({ properties: { page: { margin: { top: 960, bottom: 960, left: 960, right: 960 } } }, footers: { default: footer }, children: [
+    para(T(p.role.toUpperCase(), { bold: true, size: 18, color: O, characterSpacing: 30 })),
+    para(T(p.name, { bold: true, size: 48, color: INK })),
+    para(T(`${p.title}, ${p.company}`, { size: 22, color: MUTED }), { spacing: { after: 160 }, border: { bottom: { style: D.BorderStyle.SINGLE, size: 18, color: O, space: 8 } } }),
+    para(T(p.bio, { size: 21, color: INK }), { spacing: { after: 160, line: 300 } }),
+    ...p.highlights.map(h => para(T(h, { size: 20 }), { bullet: { level: 0 }, spacing: { after: 40 } })),
+    ...(p.projects.length ? [para(T(""), { spacing: { after: 100 } }), label("Relevant experience")] : []),
+    ...p.projects.flatMap(x => [
+      para(T(x.name, { bold: true, size: 23, color: INK }), { spacing: { before: 120 }, border: { left: { style: D.BorderStyle.SINGLE, size: 18, color: O, space: 8 } } }),
+      para(T([x.meta, x.size].filter(Boolean).join("  ·  "), { size: 18, color: MUTED }), { border: { left: { style: D.BorderStyle.SINGLE, size: 18, color: O, space: 8 } } }),
+      para([T("Role: ", { bold: true, size: 19 }), T(x.role, { size: 19 })], { border: { left: { style: D.BorderStyle.SINGLE, size: 18, color: O, space: 8 } } }),
+      ...(x.scope ? [para(T(x.scope, { size: 19 }), { spacing: { after: 60 }, border: { left: { style: D.BorderStyle.SINGLE, size: 18, color: O, space: 8 } } })] : []),
+    ]) ] }));
+
+  const doc = new D.Document({ creator: COMPANY.name, title: `${P.title}: ${P.project}`,
+    numbering: undefined,
+    sections: [
+      { properties: { page: { margin: { top: 720, bottom: 720, left: 960, right: 960 } } }, children: cover },
+      { properties: { page: { margin: { top: 960, bottom: 960, left: 960, right: 960 } } }, footers: { default: footer }, children: org },
+      ...resumes ] });
+  return D.Packer.toBlob(doc);
+}
+
+function download(blob, name){
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+}
+
+$("pdfBtn").onclick = async () => {
+  const P = packet(); if (!P.people.length) return;
+  const btn = $("pdfBtn"); btn.disabled = true; btn.textContent = "Building…";
+  try {
+    const blob = await new Promise((res, rej) => { try { pdfMake.createPdf(buildPdf(P)).getBlob(res); } catch (e) { rej(e); } });
+    download(blob, P.fileBase + ".pdf"); toast("PDF downloaded");
+  } catch (e) { console.error(e); toast("PDF failed: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Download PDF"; }
+};
+$("docBtn").onclick = async () => {
+  const P = packet(); if (!P.people.length) return;
+  const btn = $("docBtn"); btn.disabled = true; btn.textContent = "Building…";
+  try { download(await buildDocx(P), P.fileBase + ".docx"); toast("Word file downloaded"); }
+  catch (e) { console.error(e); toast("Word failed: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Download Word"; }
+};
+</script>
+</body>
+</html>
