@@ -174,6 +174,10 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
     <h2 class="step"><span class="n">3</span>Pick the team</h2>
     <div class="sub">Ranked by how closely each person's submitted projects match this RFP. The top pick in each role is checked. Tap a name to edit the bio and choose which projects print.</div>
     <div class="note hidden" id="availNote"></div>
+    <div class="pos">
+      <h3>Leadership <small>on every packet</small></h3>
+      <div id="leaders"></div>
+    </div>
     <div id="positions"></div>
 
     <!-- STEP 4 -->
@@ -212,6 +216,16 @@ const COMPANY = { name: "Haggerty Construction", city: "Stockton, CA" };
 // Logo mark used on the page and the packet. Swap in the official logo file here (PNG data URL).
 const LOGO = "data:image/png;base64,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";
 const MAX_PROJECTS_PRINTED = 4;      // per resume page
+
+// Leadership on every packet, in this order, above the project team.
+// Write each bio once here (third person, a few sentences); it can still be edited per packet on the page.
+const LEADERSHIP = [
+  { name: "Ryan Haggerty",  title: "President & CEO",                bio: "" },
+  { name: "Hugo Mendoza",   title: "VP of Operations",               bio: "" },
+  { name: "Don Yount",      title: "Senior Construction Advisor",    bio: "" },
+  { name: "David Cuppet",   title: "Advise Manager",                 bio: "" },
+  { name: "Patrick Dobson", title: "Construction Advisory Services", bio: "" },
+];
 
 /* ========================================================================== */
 const $ = id => document.getElementById(id);
@@ -339,6 +353,8 @@ function load(data){
   for (const pos of data.positions) pos.candidates.forEach((c, i) => {
     picks[pos.key + "|" + c.name] = { on: i === 0, bio: c.bio || starterBio(c, pos), projects: new Set(c.projects.slice(0, MAX_PROJECTS_PRINTED).map((_, j) => j)) };
   });
+  leaders = LEADERSHIP.map(l => ({ ...l, on: true }));
+  renderLeaders();
   renderPositions();
   $("results").classList.remove("hidden"); $("startOver").classList.remove("hidden");
   $("results").scrollIntoView({ behavior: "smooth" });
@@ -401,6 +417,34 @@ function renderPositions(){
   updateCount();
 }
 
+/* ---------- leadership (always offered, on by default) ---------- */
+let leaders = [];
+function renderLeaders(){
+  const wrap = $("leaders"); wrap.innerHTML = "";
+  leaders.forEach(l => {
+    const el = document.createElement("div"); el.className = "cand" + (l.on ? " on" : "");
+    el.innerHTML = `
+      <div class="top">
+        <input type="checkbox" ${l.on ? "checked" : ""} aria-label="Include ${esc(l.name)}">
+        <div class="who"><b>${esc(l.name)}</b><span>${esc(l.title)}${l.bio.trim() ? "" : " · no bio yet"}</span></div>
+      </div>
+      <div class="body ${l.on ? "" : "hidden"}">
+        <div class="lbl">Title on the packet</div>
+        <input class="ltitle" value="${esc(l.title)}">
+        <div class="lbl">Bio</div>
+        <textarea placeholder="A few sentences in third person: role at Haggerty, years in construction, the kinds of projects they oversee.">${esc(l.bio)}</textarea>
+      </div>`;
+    const cb = el.querySelector(".top input");
+    el.querySelector(".top").onclick = e => {
+      if (e.target !== cb) { if (!l.on) cb.checked = true; else { el.querySelector(".body").classList.toggle("hidden"); return; } }
+      l.on = cb.checked; el.classList.toggle("on", l.on); el.querySelector(".body").classList.toggle("hidden", !l.on); updateCount();
+    };
+    el.querySelector(".ltitle").oninput = e => { l.title = e.target.value; };
+    el.querySelector("textarea").oninput = e => { l.bio = e.target.value; };
+    wrap.appendChild(el);
+  });
+}
+
 function selected(){
   const out = [];
   for (const pos of result.positions) for (const c of pos.candidates) {
@@ -410,7 +454,7 @@ function selected(){
   return out;
 }
 function updateCount(){
-  const n = selected().length;
+  const n = selected().length + leaders.filter(l => l.on).length;
   $("selCount").textContent = n ? `${n} ${n === 1 ? "person" : "people"} in the packet` : "Check at least one person to build the packet";
   $("pdfBtn").disabled = $("docBtn").disabled = !n;
 }
@@ -426,17 +470,30 @@ function packet(){
     city: $("tCity").value.trim(),
     date: $("pDate").value.trim(),
     facts: [["Location", $("tCity").value], ["Value", $("tCost").value], ["Size", $("tSf").value], ["Delivery", $("tDelivery").value]].filter(f => String(f[1] || "").trim()),
-    people: people.map(({ pos, c, bio, projects }) => ({
+    people: [
+      ...leaders.filter(l => l.on).map(l => ({ name: l.name, role: "Leadership", title: squishTitle(l.title), company: COMPANY.name,
+        bio: l.bio.trim(), highlights: [], projects: [], leader: true })),
+      ...people.map(({ pos, c, bio, projects }) => ({
       name: firstLast(c.name), role: pos.label === "Project Engineer / APM" ? (c.current_role === "Assistant Project Manager" ? "Assistant Project Manager" : "Project Engineer") : pos.label,
       title: c.current_role, company: c.company, bio, highlights: c.highlights || [],
       projects: projects.map(p => ({ name: p.project_name, meta: [p.city_state, p.vertical, p.project_type].filter(Boolean).join(" · "),
         size: [sqft(p.square_footage), money(p.cost), p.year_completed ? "Completed " + p.year_completed : ""].filter(Boolean).join(" · "),
         role: p.role + (p.company && p.company !== COMPANY.name ? " (" + p.company + ")" : ""),
         scope: trimScope(p.scope) }))
-    })),
+    }))],
     fileBase: ("Haggerty Key Personnel - " + projectName).replace(/[\\/:*?"<>|]+/g, "").slice(0, 90)
   };
 }
+const squishTitle = s => String(s || "").replace(/\s+/g, " ").trim();
+// leaders first (config order), then the project team by role
+const ROLE_ORDER = ["Project Manager", "Superintendent", "Project Engineer", "Assistant Project Manager", "Estimator"];
+function ordered(P){
+  const lead = P.people.filter(p => p.leader);
+  const team = P.people.filter(p => !p.leader).sort((a, b) => ROLE_ORDER.indexOf(a.role) - ROLE_ORDER.indexOf(b.role));
+  return { lead, team, all: [...lead, ...team] };
+}
+const chunk = (arr, n) => { const out = []; for (let i = 0; i < arr.length; i += n) out.push(arr.slice(i, i + n)); return out; };
+const shownRole = p => p.leader ? p.title : p.role;
 function trimScope(s){
   s = String(s || "").replace(/\s+/g, " ").trim();
   if (s.length <= 360) return s;
@@ -469,31 +526,37 @@ function buildPdf(P){
       layout: { hLineWidth: (i, n) => (i === 0 || i === n.table.body.length) ? 0 : 0.7, vLineWidth: () => 0, hLineColor: () => BRAND.line, paddingTop: () => 7, paddingBottom: () => 7, paddingLeft: () => 0 } } : "",
     { text: "", margin: [0, 30, 0, 0] },
     { text: "PROPOSED TEAM", fontSize: 9, bold: true, color: MUTED, characterSpacing: 1, margin: [0, 0, 0, 6] },
-    ...P.people.map(p => ({ columns: [{ text: p.name, bold: true, fontSize: 12, width: 200 }, { text: p.role, fontSize: 12, color: MUTED }], margin: [0, 0, 0, 4] }))
+    ...ordered(P).all.map(p => ({ columns: [{ text: p.name, bold: true, fontSize: 11.5, width: 200 }, { text: shownRole(p), fontSize: 11.5, color: MUTED }], margin: [0, 0, 0, 3] }))
   );
 
   // org chart
   content.push({ text: "", pageBreak: "before" },
     { text: "PROJECT ORGANIZATION", fontSize: 9, bold: true, color: O, characterSpacing: 1.5 },
-    { text: P.project, fontSize: 20, bold: true, color: INK, margin: [0, 2, 0, 24] });
-  const box = (t1, t2, fill, color, w) => ({ table: { widths: [w || 220], body: [[{ stack: [{ text: t1, bold: true, fontSize: 12, color }, t2 ? { text: t2, fontSize: 9.5, color: color === "#FFFFFF" ? "#D9DDE1" : MUTED, margin: [0, 2, 0, 0] } : ""], fillColor: fill, alignment: "center", margin: [8, 9, 8, 9] }]] },
+    { text: P.project, fontSize: 20, bold: true, color: INK, margin: [0, 2, 0, 16] });
+  const box = (t1, t2, fill, color, w, small) => ({ table: { widths: [w || 220], body: [[{ stack: [{ text: t1, bold: true, fontSize: small ? 10 : 12, color }, t2 ? { text: t2, fontSize: small ? 8 : 9.5, color: color === "#FFFFFF" ? "#D9DDE1" : MUTED, margin: [0, 2, 0, 0] } : ""], fillColor: fill, alignment: "center", margin: small ? [4, 7, 4, 7] : [8, 9, 8, 9] }]] },
     layout: { hLineWidth: () => 1, vLineWidth: () => 1, hLineColor: () => fill === "#FFFFFF" ? BRAND.line : fill, vLineColor: () => fill === "#FFFFFF" ? BRAND.line : fill } });
   const center = (node) => ({ columns: [{ width: "*", text: "" }, { width: "auto", ...node }, { width: "*", text: "" }] });
   // fresh object each time: pdfmake mutates nodes during layout, so a shared node draws in the wrong place
   const vline = () => ({ canvas: [{ type: "line", x1: 258, y1: 0, x2: 258, y2: 18, lineWidth: 2, lineColor: O }] });
   if (P.owner) { content.push(center(box(P.owner, "Owner", "#FFFFFF", INK)), vline()); }
   content.push(center(box(COMPANY.name, "General Contractor", INK, "#FFFFFF")), vline());
-  const order = ["Project Manager", "Superintendent", "Project Engineer", "Assistant Project Manager", "Estimator"];
-  const sorted = P.people.slice().sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
-  const rows = []; for (let i = 0; i < sorted.length; i += 3) rows.push(sorted.slice(i, i + 3));
-  rows.forEach((r, ri) => {
-    content.push({ columns: [{ width: "*", text: "" }, ...r.map(p => ({ width: 160, ...box(p.name, p.role, "#FFFFFF", INK, 144), margin: [6, 0, 6, 0] })), { width: "*", text: "" }], columnGap: 0, margin: [0, ri ? 12 : 0, 0, 0] });
-  });
-  content.push({ text: "", margin: [0, 26, 0, 0] },
-    { table: { headerRows: 1, widths: ["*", "*", "*"], body: [
+  const { lead, team, all: sorted } = ordered(P);
+  const groupLabel = t => ({ text: t, alignment: "center", fontSize: 8, bold: true, color: MUTED, characterSpacing: 1.5, margin: [0, 0, 0, 6] });
+  const boxRow = (r, w, ri, small) => ({ columns: [{ width: "*", text: "" }, ...r.map(p => ({ width: w + 12, ...box(p.name, shownRole(p), "#FFFFFF", INK, w, small), margin: [6, 0, 6, 0] })), { width: "*", text: "" }], columnGap: 0, margin: [0, ri ? 10 : 0, 0, 0] });
+  if (lead.length) {
+    content.push(groupLabel("LEADERSHIP"));
+    chunk(lead, 5).forEach((r, ri) => content.push(boxRow(r, 82, ri, true)));
+    if (team.length) content.push({ text: "", margin: [0, 4, 0, 0] }, vline());
+  }
+  if (team.length) {
+    if (lead.length) content.push(groupLabel("PROJECT TEAM"));
+    chunk(team, 3).forEach((r, ri) => content.push(boxRow(r, 144, ri, false)));
+  }
+  content.push({ text: "", margin: [0, 16, 0, 0] },
+    { table: { headerRows: 1, dontBreakRows: true, widths: ["*", "*", "*"], body: [
       ["NAME", "PROJECT ROLE", "CURRENT TITLE"].map(h => ({ text: h, fontSize: 8.5, bold: true, color: MUTED, characterSpacing: 1 })),
-      ...sorted.map(p => [{ text: p.name, bold: true, fontSize: 10.5 }, { text: p.role, fontSize: 10.5 }, { text: p.title, fontSize: 10.5, color: MUTED }]) ] },
-      layout: { hLineWidth: (i) => i === 1 ? 1.2 : 0.6, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? O : BRAND.line, paddingTop: () => 6, paddingBottom: () => 6, paddingLeft: () => 0 } });
+      ...sorted.map(p => [{ text: p.name, bold: true, fontSize: 10 }, { text: p.role, fontSize: 10 }, { text: p.title, fontSize: 10, color: MUTED }]) ] },
+      layout: { hLineWidth: (i) => i === 1 ? 1.2 : 0.6, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? O : BRAND.line, paddingTop: () => 4.5, paddingBottom: () => 4.5, paddingLeft: () => 0 } });
 
   // resumes
   for (const p of sorted) {
@@ -551,28 +614,34 @@ async function buildDocx(P){
     ...P.facts.map(f => para([T(f[0].toUpperCase() + "     ", { bold: true, size: 17, color: MUTED }), T(f[1], { size: 24, color: INK })], { spacing: { after: 100 }, border: { bottom: { style: D.BorderStyle.SINGLE, size: 4, color: LINE, space: 4 } } })),
     para(T(""), { spacing: { after: 300 } }),
     label("Proposed team"),
-    ...P.people.map(p => para([T(p.name, { bold: true, size: 24 }), new D.TextRun({ text: "\t" + p.role, size: 24, color: MUTED, font: "Calibri" })], { tabStops: [{ type: D.TabStopType.LEFT, position: 4200 }], spacing: { after: 60 } })),
+    ...ordered(P).all.map(p => para([T(p.name, { bold: true, size: 23 }), new D.TextRun({ text: "\t" + shownRole(p), size: 23, color: MUTED, font: "Calibri" })], { tabStops: [{ type: D.TabStopType.LEFT, position: 4200 }], spacing: { after: 50 } })),
     para(T(""), { spacing: { after: 600 } }),
     para(T((P.date ? P.date + "  ·  " : "") + COMPANY.name + "  ·  " + COMPANY.city, { size: 18, color: MUTED })),
   ];
 
   // org chart page
-  const order = ["Project Manager", "Superintendent", "Project Engineer", "Assistant Project Manager", "Estimator"];
-  const sorted = P.people.slice().sort((a, b) => order.indexOf(a.role) - order.indexOf(b.role));
-  const cellBox = (t1, t2, dark) => new D.TableCell({ shading: { fill: dark ? INK : "FFFFFF", type: D.ShadingType.CLEAR, color: "auto" }, margins: { top: 140, bottom: 140, left: 120, right: 120 },
+  const { lead, team, all: sorted } = ordered(P);
+  const cellBox = (t1, t2, dark, small, w) => new D.TableCell({ ...(w ? { width: { size: w, type: D.WidthType.DXA } } : {}), shading: { fill: dark ? INK : "FFFFFF", type: D.ShadingType.CLEAR, color: "auto" }, margins: small ? { top: 100, bottom: 100, left: 60, right: 60 } : { top: 140, bottom: 140, left: 120, right: 120 },
     borders: { top: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, bottom: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, left: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE }, right: { style: D.BorderStyle.SINGLE, size: 6, color: dark ? INK : LINE } },
-    children: [para(T(t1, { bold: true, size: 22, color: dark ? "FFFFFF" : INK }), { alignment: D.AlignmentType.CENTER }), para(T(t2, { size: 18, color: dark ? "D9DDE1" : MUTED }), { alignment: D.AlignmentType.CENTER })] });
+    children: [para(T(t1, { bold: true, size: small ? 18 : 22, color: dark ? "FFFFFF" : INK }), { alignment: D.AlignmentType.CENTER }), para(T(t2, { size: small ? 15 : 18, color: dark ? "D9DDE1" : MUTED }), { alignment: D.AlignmentType.CENTER })] });
   const single = (t1, t2, dark) => new D.Table({ alignment: D.AlignmentType.CENTER, width: { size: 4400, type: D.WidthType.DXA }, rows: [new D.TableRow({ children: [cellBox(t1, t2, dark)] })] });
   const arrow = () => para(T("|", { color: LINE, size: 28 }), { alignment: D.AlignmentType.CENTER, spacing: { before: 40, after: 40 } });
-  const rowsOf3 = []; for (let i = 0; i < sorted.length; i += 3) rowsOf3.push(sorted.slice(i, i + 3));
+  const gap = () => new D.TableCell({ width: { size: 150, type: D.WidthType.DXA }, borders: { top: none, bottom: none, left: none, right: none }, children: [para(T(""))] });
+  const boxRows = (people, perRow, cellW, small) => chunk(people, perRow).flatMap((r, i, all) => [
+    new D.Table({ alignment: D.AlignmentType.CENTER, layout: D.TableLayoutType.FIXED, borders: { ...noBorders },
+      width: { size: cellW * r.length + 150 * (r.length - 1), type: D.WidthType.DXA },
+      columnWidths: r.flatMap((_, j) => [cellW, ...(j < r.length - 1 ? [150] : [])]),
+      rows: [new D.TableRow({ children: r.flatMap((p, j) => [cellBox(p.name, shownRole(p), false, small, cellW), ...(j < r.length - 1 ? [gap()] : [])]) })] }),
+    para(T(""), { spacing: { after: i < all.length - 1 ? 120 : 160 } })]);
+  const groupLabel = t => para(T(t, { bold: true, size: 15, color: MUTED, characterSpacing: 30 }), { alignment: D.AlignmentType.CENTER, spacing: { after: 80 } });
   const org = [
     label("Project organization", O),
     para(T(P.project, { bold: true, size: 40, color: INK }), { spacing: { after: 360 } }),
     ...(P.owner ? [single(P.owner, "Owner", false), arrow()] : []),
     single(COMPANY.name, "General Contractor", true), arrow(),
-    ...rowsOf3.flatMap((r, i) => [new D.Table({ alignment: D.AlignmentType.CENTER, width: { size: 3200 * r.length, type: D.WidthType.DXA },
-      borders: { ...noBorders }, rows: [new D.TableRow({ children: r.flatMap((p, j) => [cellBox(p.name, p.role, false), ...(j < r.length - 1 ? [new D.TableCell({ width: { size: 200, type: D.WidthType.DXA }, borders: { top: none, bottom: none, left: none, right: none }, children: [para(T(""))] })] : [])]) })] }),
-      para(T(""), { spacing: { after: i < rowsOf3.length - 1 ? 160 : 400 } })]),
+    ...(lead.length ? [groupLabel("LEADERSHIP"), ...boxRows(lead, 5, 1900, true), ...(team.length ? [arrow()] : [])] : []),
+    ...(team.length ? [...(lead.length ? [groupLabel("PROJECT TEAM")] : []), ...boxRows(team, 3, 3100, false)] : []),
+    para(T(""), { spacing: { after: 200 } }),
     new D.Table({ width: { size: 100, type: D.WidthType.PERCENTAGE }, borders: { ...noBorders, insideHorizontal: { style: D.BorderStyle.SINGLE, size: 4, color: LINE } },
       rows: [new D.TableRow({ tableHeader: true, children: ["NAME", "PROJECT ROLE", "CURRENT TITLE"].map(h => new D.TableCell({ borders: { bottom: { style: D.BorderStyle.SINGLE, size: 10, color: O }, top: none, left: none, right: none }, children: [para(T(h, { bold: true, size: 16, color: MUTED }))] })) }),
         ...sorted.map(p => new D.TableRow({ children: [T(p.name, { bold: true, size: 21 }), T(p.role, { size: 21 }), T(p.title, { size: 21, color: MUTED })].map(r => new D.TableCell({ margins: { top: 80, bottom: 80 }, children: [para(r)] })) }))] }),
@@ -607,8 +676,12 @@ function download(blob, name){
   document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
 }
 
+function bioCheck(P){
+  const missing = P.people.filter(p => p.leader && !p.bio).map(p => p.name);
+  return !missing.length || confirm(`${missing.join(", ")} ${missing.length === 1 ? "has" : "have"} no bio yet, so ${missing.length === 1 ? "that page" : "those pages"} will show only name and title. Build anyway?`);
+}
 $("pdfBtn").onclick = async () => {
-  const P = packet(); if (!P.people.length) return;
+  const P = packet(); if (!P.people.length || !bioCheck(P)) return;
   const btn = $("pdfBtn"); btn.disabled = true; btn.textContent = "Building…";
   try {
     const blob = await new Promise((res, rej) => { try { pdfMake.createPdf(buildPdf(P)).getBlob(res); } catch (e) { rej(e); } });
@@ -617,7 +690,7 @@ $("pdfBtn").onclick = async () => {
   finally { btn.disabled = false; btn.textContent = "Download PDF"; }
 };
 $("docBtn").onclick = async () => {
-  const P = packet(); if (!P.people.length) return;
+  const P = packet(); if (!P.people.length || !bioCheck(P)) return;
   const btn = $("docBtn"); btn.disabled = true; btn.textContent = "Building…";
   try { download(await buildDocx(P), P.fileBase + ".docx"); toast("Word file downloaded"); }
   catch (e) { console.error(e); toast("Word failed: " + e.message); }
