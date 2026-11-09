@@ -171,6 +171,7 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
 .btnRow{display:grid;grid-template-columns:1fr 2fr;gap:10px}
 .btnRow .btn-ghost{min-height:56px;font-size:16px}
 .card.editing #addBtn{display:none}
+.errSum{background:var(--err-soft);color:var(--err);border-radius:8px;padding:10px 12px;font-weight:600;font-size:14px;margin:4px 0 10px}
 .card.editing .btnRow.editOnly{display:grid}
 #projCard{scroll-margin-top:84px}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -258,12 +259,12 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
       <div class="field" id="p_cost">
         <label>Cost ($)</label>
         <input id="pCost" type="text" inputmode="numeric" placeholder="12,500,000">
-        <div class="err-msg">Enter the full dollar value, like 7,500,000.</div>
+        <div class="err-msg">Enter the dollar value, like 7,500,000 or $7.5M.</div>
       </div>
       <div class="field" id="p_sf">
         <label>Square footage</label>
         <input id="pSf" type="text" inputmode="numeric" placeholder="220,000">
-        <div class="err-msg">Enter the building size in SF, like 45,000. Not site or land area.</div>
+        <div class="err-msg">Enter the building size in SF, like 45,000 or 45k. Not site or land area.</div>
       </div>
     </div>
     <div class="row2">
@@ -304,6 +305,7 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
         <select id="pState"></select>
       </div>
     </div>
+    <div class="errSum hidden" id="errSum" role="alert" aria-live="polite"></div>
     <button class="btn btn-hi" id="addBtn">Add project</button>
     <div class="btnRow editOnly" id="editBtns">
       <button class="btn btn-ghost" id="cancelEdit">Cancel</button>
@@ -416,8 +418,10 @@ const titleCase = s => squish(s).replace(/[.,]+$/,'').split(' ').map(w =>
   (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 3)) ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
 const PLACEHOLDERS = /^(none|n\/?a|na|unknown|tbd|\?+|-+|\.+)$/i;
 const archKey = s => String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+// "red inc." and "WMB" also match "RED Inc Architects" and "WMB Architects"
+const archBase = s => squish(s).toLowerCase().replace(/[^a-z0-9& ]/g,' ').replace(/\b(architects?|architecture|inc|incorporated|associates|assoc|aia)\b/g,' ').replace(/[^a-z0-9]/g,'');
 const cleanArch = s => { const v = squish(s); if (PLACEHOLDERS.test(v)) return '';
-  return ARCHITECTS.find(a => archKey(a) === archKey(v)) || v; };
+  return ARCHITECTS.find(a => archKey(a) === archKey(v)) || (archBase(v) && ARCHITECTS.find(a => archBase(a) === archBase(v))) || v; };
 $('archList').innerHTML = ARCHITECTS.map(a => `<option value="${a}">`).join('');
 const cleanCompany = s => /^haggerty( construction)?( inc\.?)?$/i.test(squish(s)) ? 'Haggerty Construction' : squish(s);
 function joinPlace(city, state){
@@ -431,6 +435,25 @@ function splitPlace(s){
   return s ? { city: s, state: OTHER_PLACE } : { city: '', state: 'CA' };
 }
 // Reads and checks the project card. Used by both "Add project" and "Save changes".
+function cityAndState(){
+  let city = squish($('pCity').value), state = $('pState').value;
+  if (state !== OTHER_PLACE) {
+    const m = city.match(/^(.*?)(,\s*|\s+)([A-Za-z]{2})\.?$/);
+    if (m && m[1] && STATES.includes(m[3].toUpperCase()) && (m[2].includes(',') || m[3] === m[3].toUpperCase())) {
+      city = m[1].replace(/[.,]+$/,'').trim(); state = m[3].toUpperCase();
+      $('pCity').value = city; $('pState').value = state;
+    }
+  }
+  return [city, state];
+}
+// Lists what still needs fixing right above the Add / Save buttons
+function showErrSum(){
+  const bad = [...$('projCard').querySelectorAll('.field.bad')].map(f => (f.querySelector('label')||{}).textContent || '').map(t => t.replace(/\(.*?\)/g,'').trim()).filter(Boolean);
+  const box = $('errSum');
+  if (!bad.length) { box.classList.add('hidden'); box.textContent = ''; return; }
+  box.textContent = 'Fix before saving: ' + bad.join(', ') + '.';
+  box.classList.remove('hidden');
+}
 function readProject(role){
   const card = $('projCard'); clearBad(card);
   const sizeOptional = NO_SIZE_ROLES.includes(role);
@@ -439,7 +462,7 @@ function readProject(role){
     cost: num($('pCost').value), square_footage: num($('pSf').value),
     vertical: $('pVert').value, project_type: $('pType').value,
     scope: squish($('pScope').value), architect: cleanArch($('pArch').value),
-    year_completed: num($('pYear').value), city_state: joinPlace($('pCity').value, $('pState').value)
+    year_completed: num($('pYear').value), city_state: joinPlace(...cityAndState())
   };
   const thisYear = new Date().getFullYear();
   let ok = true;
@@ -456,6 +479,7 @@ function readProject(role){
   if (!p.city_state) { markBad('p_city'); ok = false; }
   if (p.cost === null) p.cost = '';
   if (p.square_footage === null) p.square_footage = '';
+  showErrSum();
   return { ok, p };
 }
 function clearProjectFields(){
@@ -492,7 +516,14 @@ const pending = {};   // id -> payload, for retry
 
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const initials = n => n.split(/\s+/).filter(Boolean).slice(0,2).map(w=>w[0]).join('').toUpperCase() || '–';
-const num = v => { const n = parseFloat(String(v).replace(/[^0-9.\-]/g,'')); return isNaN(n)?null:n; };
+// Reads 7,500,000 / $7.5M / 1.5 million / 45k / 45,000 SF. Falls back to the first number it finds.
+const MULT = {k:1e3,thousand:1e3,m:1e6,mm:1e6,mil:1e6,million:1e6,b:1e9,bn:1e9,billion:1e9};
+const num = v => {
+  const s = String(v ?? '').toLowerCase().replace(/[$,\s]/g,'').replace(/(sf|sqft|squarefeet|ft2)$/,'');
+  const m = s.match(/^(\d*\.?\d+)(k|thousand|mm|mil|million|m|bn|billion|b)?$/);
+  if (m) return Math.round(parseFloat(m[1]) * (MULT[m[2]] || 1) * 100) / 100;
+  const n = parseFloat(s.replace(/[^0-9.\-]/g,'')); return isNaN(n) ? null : n;
+};
 
 function showId(){ $('screenId').classList.remove('hidden'); $('screenAdd').classList.add('hidden'); }
 function showAdd(){
@@ -727,6 +758,7 @@ $('saveEdit').onclick = async ()=>{
   if(!name){markBad('e_name');ok=false}
   if(!role){markBad('e_role');ok=false}
   if(!company){markBad('e_company');ok=false}
+  showErrSum();
   if(!ok){ card.querySelector('.field.bad').scrollIntoView({behavior:'smooth',block:'center'}); return; }
 
   const btn=$('saveEdit'); btn.disabled=true; btn.textContent='Saving…';
