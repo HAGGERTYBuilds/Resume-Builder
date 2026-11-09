@@ -345,6 +345,24 @@ const UPDATE_URL = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-updat
 // Shared secret sent with every submission. Must match the key checked in n8n.
 const SUBMIT_KEY = "67b2238ac5963a25ea2f1ff9ace818080aa309c4f05f4c69";
 
+// One phone, one person. Each phone keeps a private random token. The first project it saves
+// links the phone to that name (n8n "Portfolio Devices" table). After that the name is locked
+// on this phone, and n8n refuses projects sent from it under anyone else's name.
+const DEVICE_KEY = 'haggerty_portfolio_device';
+const LINKED_KEY = 'haggerty_portfolio_linked_name';
+function deviceToken(){
+  let t = ''; try{ t = localStorage.getItem(DEVICE_KEY) || ''; }catch(e){}
+  if(!t){
+    t = (window.crypto && crypto.randomUUID) ? crypto.randomUUID()
+      : 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => { const r = Math.random()*16|0; return (c==='x'?r:(r&0x3|0x8)).toString(16); });
+    try{ localStorage.setItem(DEVICE_KEY, t); }catch(e){}
+  }
+  return t;
+}
+function apiHeaders(){
+  return {'Content-Type':'application/json','x-portfolio-key':SUBMIT_KEY,'x-device-token':deviceToken()};
+}
+
 // 2) Your roster (39 people), sorted by last name, shown Last, First.
 //    Must match the Name list on the Setup tab of the workbook exactly.
 const NAMES = [
@@ -408,6 +426,27 @@ const fill = (sel, arr, ph) => {
   el.innerHTML = '<option value="">'+ph+'</option>' + arr.map(v=>`<option>${v}</option>`).join('');
 };
 fill('idName',NAMES,'Select your name');
+
+// If this phone is already linked to someone, preselect and lock their name.
+function linkedName(){ try{ return localStorage.getItem(LINKED_KEY) || ''; }catch(e){ return ''; } }
+function linkName(name){
+  try{ localStorage.setItem(LINKED_KEY, name); }catch(e){}
+  lockName();
+}
+function lockName(){
+  const name = linkedName(); if(!name) return;
+  const sel = $('idName');
+  if(![...sel.options].some(o=>o.value===name)){ const o=document.createElement('option'); o.textContent=name; sel.appendChild(o); }
+  sel.value = name; sel.disabled = true;
+  let note = $('linkedNote');
+  if(!note){
+    note = document.createElement('div'); note.id = 'linkedNote';
+    note.style.cssText = 'margin-top:6px;font-size:13px;opacity:.75';
+    sel.parentNode.insertBefore(note, sel.nextSibling);
+  }
+  note.textContent = 'Linked to this phone. Not you? Ask Liam.';
+}
+lockName();
 fill('idRole',ROLES,'Select role');
 $('pState').innerHTML = [...STATES, OTHER_PLACE].map(s=>`<option>${s}</option>`).join('');
 $('pState').value = 'CA';
@@ -541,6 +580,9 @@ function showAdd(){
 (function restore(){
   const raw = store.get('identity');
   if(raw){ try{ identity = JSON.parse(raw); }catch(e){ identity=null; } }
+  // a linked phone always works as its linked person
+  const ln = linkedName();
+  if(identity && ln && identity.name !== ln){ identity.name = ln; store.set('identity', JSON.stringify(identity)); }
   if(identity && identity.name){ showAdd(); } else { showId(); }
 })();
 
@@ -619,9 +661,12 @@ function renderLog(){
 async function post(payload){
   if(TEST_MODE){ await new Promise(r=>setTimeout(r,450)); return true; }
   const res = await fetch(WEBHOOK_URL,{
-    method:'POST', headers:{'Content-Type':'application/json','x-portfolio-key':SUBMIT_KEY}, body:JSON.stringify(payload)
+    method:'POST', headers:apiHeaders(), body:JSON.stringify(payload)
   });
+  let data = null; try{ data = await res.json(); }catch(e){}
+  if(res.status === 409 && data && data.message){ const err = new Error(data.message); err.deviceMsg = data.message; throw err; }
   if(!res.ok) throw new Error('HTTP '+res.status);
+  if(data && data.linkedName) linkName(data.linkedName);
   return true;
 }
 
@@ -635,6 +680,7 @@ async function send(id){
     scheduleMineReload();
   }catch(e){
     item.status='failed'; renderLog();
+    if(e && e.deviceMsg){ alert(e.deviceMsg); return; }
     toast('Save failed — tap Retry', false);
   }
 }
@@ -679,7 +725,7 @@ function scheduleMineReload(){ clearTimeout(mineTimer); mineTimer = setTimeout(l
 
 async function api(url, payload){
   const res = await fetch(url,{ method:'POST',
-    headers:{'Content-Type':'application/json','x-portfolio-key':SUBMIT_KEY}, body:JSON.stringify(payload) });
+    headers:apiHeaders(), body:JSON.stringify(payload) });
   let data = null; try{ data = await res.json(); }catch(e){}
   return { ok: res.ok, status: res.status, data };
 }
