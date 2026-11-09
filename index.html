@@ -263,7 +263,7 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
       <div class="field" id="p_sf">
         <label>Square footage</label>
         <input id="pSf" type="text" inputmode="numeric" placeholder="220,000">
-        <div class="err-msg">Enter the building size in SF, like 45,000.</div>
+        <div class="err-msg">Enter the building size in SF, like 45,000. Not site or land area.</div>
       </div>
     </div>
     <div class="row2">
@@ -285,7 +285,8 @@ select:focus,input:focus,textarea:focus{outline:3px solid var(--hi-soft);
     </div>
     <div class="field">
       <label>Architect <span class="opt">(leave blank if none)</span></label>
-      <input id="pArch" type="text" placeholder="e.g. Ware Malcomb" autocomplete="off">
+      <input id="pArch" type="text" list="archList" placeholder="Start typing, then pick from the list" autocomplete="off">
+      <datalist id="archList"></datalist>
     </div>
     <div class="field" id="p_year">
       <label>Year completed</label>
@@ -363,7 +364,7 @@ const COMPANIES = ["Haggerty Construction"];
 // Anyone can also choose "Other company…" and type their own.
 
 const VERTICALS = ["Industrial","Office / TI","Retail","Hospitality",
-  "Multi-Family","Senior Living","Healthcare","Auto","Public / Civic","Education"];
+  "Multi-Family","Senior Living","Healthcare","Auto","QSR","Public / Civic","Education"];
 // Keep this list matched to the Vertical list on the workbook's Setup tab.
 
 const TYPES = ["Ground-up","Tenant Improvement"];
@@ -375,6 +376,13 @@ const STATES = ["CA","AK","AL","AR","AZ","CO","CT","DC","DE","FL","GA","HI","IA"
 const OTHER_PLACE = "Other / outside US";
 // Roles that log work without a building value or size (cost and SF optional)
 const NO_SIZE_ROLES = ["Safety Officer"];
+// Suggested architect spellings. Typing a close match ("red inc.") saves the spelling below.
+const ARCHITECTS = ["Arch Nexus","Architecture Solution Group","Armet Davis Newlove & Associates",
+  "Artifex West","Bergman Walls & Associates","Boulder Associates","Carter Case",
+  "Comstock & Johnson Architects","CSHQA","EwingCole","Innov8","JC Wagner & Associates","JMA",
+  "K12 Architects","K2M Design","Kier & Wright","LDA Partners","Lee-Jagoe Architecture","MG2",
+  "Mike Smith Engineering","NJA Architecture","PBK Architects","RED Inc Architects","SmithGroup",
+  "Stantec","The Friedmutter Group","Ware Malcomb","WMB Architects","Winkelmann & Associates","WSP"];
 
 /* ==========================================================================
    APP  — no edits needed below
@@ -407,7 +415,10 @@ const squish = s => String(s ?? '').replace(/\s+/g,' ').trim();
 const titleCase = s => squish(s).replace(/[.,]+$/,'').split(' ').map(w =>
   (w === w.toLowerCase() || (w === w.toUpperCase() && w.length > 3)) ? w.charAt(0).toUpperCase() + w.slice(1).toLowerCase() : w).join(' ');
 const PLACEHOLDERS = /^(none|n\/?a|na|unknown|tbd|\?+|-+|\.+)$/i;
-const cleanArch = s => PLACEHOLDERS.test(squish(s)) ? '' : squish(s);
+const archKey = s => String(s).toLowerCase().replace(/[^a-z0-9]/g,'');
+const cleanArch = s => { const v = squish(s); if (PLACEHOLDERS.test(v)) return '';
+  return ARCHITECTS.find(a => archKey(a) === archKey(v)) || v; };
+$('archList').innerHTML = ARCHITECTS.map(a => `<option value="${a}">`).join('');
 const cleanCompany = s => /^haggerty( construction)?( inc\.?)?$/i.test(squish(s)) ? 'Haggerty Construction' : squish(s);
 function joinPlace(city, state){
   const c = state === OTHER_PLACE ? squish(city) : titleCase(city);
@@ -436,7 +447,7 @@ function readProject(role){
   if (sizeOptional) { if (p.cost !== null && p.cost < 1000) p.cost = null; if (p.square_footage !== null && p.square_footage < 100) p.square_footage = null; }
   else {
     if (p.cost === null || p.cost < 1000) { markBad('p_cost'); ok = false; }
-    if (p.square_footage === null || p.square_footage < 100) { markBad('p_sf'); ok = false; }
+    if (p.square_footage === null || p.square_footage < 100 || p.square_footage > 10000000) { markBad('p_sf'); ok = false; }
   }
   if (!p.vertical) { markBad('p_vert'); ok = false; }
   if (!p.project_type) { markBad('p_type'); ok = false; }
