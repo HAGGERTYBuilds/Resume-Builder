@@ -193,6 +193,10 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
         <div class="field"><label for="bRout">Routing # (SOQ packet only)</label><input id="bRout" autocomplete="off" spellcheck="false"></div>
       </div>
       <div class="sub" style="margin:0 2px">Typed here for this packet only. Never saved, never sent anywhere. Leave blank to print empty lines.</div>
+      <div class="field" style="margin-top:14px"><label for="attIn">Insurance &amp; bonding paperwork (SOQ packet only)</label>
+        <input id="attIn" type="file" accept="application/pdf,image/png,image/jpeg" multiple>
+        <div class="sub" style="margin:6px 2px 0">COI, bonding letter, EMR letter or whatever this RFP asks for. PDFs or images, added at the end in this order. Files stay on this computer.</div>
+        <div id="attList"></div></div>
     </div>
     <div class="sticky">
       <div class="sel" id="selCount"></div>
@@ -695,7 +699,37 @@ function soqLine(p){
   return { line: [name, p.city_state, TYPE_LABEL(p.project_type)].filter(Boolean).join(" – "),
            detail: [money(p.cost), p.year_completed].filter(Boolean).join(" · ") };
 }
-$("soqBtn").onclick = () => {
+/* insurance & bonding paperwork: rendered to page images in the browser, never uploaded */
+let attFiles = [];
+function renderAttList(){
+  $("attList").innerHTML = attFiles.map((f, i) => `<div class="file" style="margin-top:8px"><input data-i="${i}" value="${esc(f.title)}" aria-label="Title for ${esc(f.file.name)}" style="flex:1"><button class="x" data-x="${i}">Remove</button></div>`).join("");
+  $("attList").querySelectorAll("input").forEach(x => x.oninput = () => { attFiles[+x.dataset.i].title = x.value; });
+  $("attList").querySelectorAll("button").forEach(x => x.onclick = () => { attFiles.splice(+x.dataset.x, 1); renderAttList(); });
+}
+$("attIn").onchange = e => {
+  for (const file of e.target.files) attFiles.push({ file, title: file.name.replace(/\.[^.]+$/, "").replace(/[_-]+/g, " ") });
+  e.target.value = ""; renderAttList();
+};
+async function renderAttachment(file){
+  if (file.type.startsWith("image/")) return [await new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = rej; r.readAsDataURL(file); })];
+  pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js";
+  const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+  const out = [];
+  for (let n = 1; n <= pdf.numPages; n++) {
+    const page = await pdf.getPage(n);
+    const v1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: 1650 / Math.max(v1.width, v1.height) });
+    const c = document.createElement("canvas"); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+    const ctx = c.getContext("2d"); ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    await page.render({ canvasContext: ctx, viewport: vp }).promise;
+    out.push(c.toDataURL("image/jpeg", 0.88));
+  }
+  return out;
+}
+$("soqBtn").onclick = async () => {
+  const w = window.open("", "_blank");
+  if (!w) { toast("Allow pop-ups for this page to open the packet"); return; }
+  w.document.write('<p style="font:16px Arial;padding:24px">Building the packet&hellip;</p>');
   if (!window.HaggertySOQ) { toast("Packet template didn't load. Refresh the page."); return; }
   if (result._photosAt && Date.now() - result._photosAt > 110 * 60 * 1000) toast("Photo links are over 2 hours old. Run the RFP again if headshots are missing.");
   const team = selected().map(({ pos, c, bio, projects }) => ({
@@ -708,9 +742,12 @@ $("soqBtn").onclick = () => {
   const P = { project: $("tProject").value.trim(), owner: $("pFor").value.trim(), date: $("pDate").value.trim(), leaders: lead, team, photos: (result && result.photos) || {},
     company: (result && result.company) || null, bank: { account: $("bAcct").value.trim(), routing: $("bRout").value.trim() } };
   if (!P.company) toast("Company info didn't come back, so the Qualification pages are left out. Run the RFP again.");
+  P.attachments = [];
+  for (const f of attFiles) {
+    try { P.attachments.push({ title: f.title.trim() || f.file.name, pages: await renderAttachment(f.file) }); }
+    catch (e) { console.error(e); toast("Couldn't read " + f.file.name); }
+  }
   const html = window.HaggertySOQ.buildSOQ(P, new URL("soq/", location.href).href);
-  const w = window.open("", "_blank");
-  if (!w) { toast("Allow pop-ups for this page to open the packet"); return; }
   w.document.open(); w.document.write(html); w.document.close();
 };
 $("pdfBtn").onclick = async () => {

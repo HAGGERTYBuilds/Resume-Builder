@@ -137,6 +137,13 @@ function buildSOQ(P, base) {
   const qualStart = pages.length;
   const C = P.company;
   if (C && C.contacts) pages.push(...qualPages(C, P.bank));
+  // Insurance / bonding paperwork attached for this packet (rendered page images, never uploaded anywhere)
+  const att = [];
+  for (const a of (P.attachments || [])) {
+    if (!a.pages || !a.pages.length) continue;
+    att.push({ title: a.title, page: pages.length + 1 });
+    a.pages.forEach(src => pages.push(`<section class="page attach"><img src="${src}" alt=""></section>`));
+  }
   pages.push(STATIC.back);
   const rows = [
     { section: "Overview" }, { name: "About HAGGERTY", page: 1 },
@@ -145,7 +152,8 @@ function buildSOQ(P, base) {
     { section: "Team Resumes & Relevant Experience" },
     ...list.map((p, i) => ({ name: p.name, sub: p.title, page: bioStart + i + 1 })),
     ...(C && C.contacts ? [{ section: "Qualification Information" }, { name: "Company Contacts", page: qualStart + 2 },
-      { name: "Licensing, Bonding & Insurance", page: qualStart + 3 }, { name: "Current City Business Licenses", page: qualStart + 4 }] : [])
+      { name: "Licensing, Bonding & Insurance", page: qualStart + 3 }, { name: "Current City Business Licenses", page: qualStart + 4 }] : []),
+    ...(att.length ? [{ section: "Insurance & Bonding Documents" }, ...att.map(a => ({ name: a.title, page: a.page }))] : [])
   ];
   pages[1] = tocPage(rows);
   let n = 0;
@@ -176,6 +184,7 @@ ${CSS}
 .qlic{width:100%;border-collapse:collapse;font-size:10pt;color:#E8EAED}
 .qlic th{text-align:left;font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#F68922;font-weight:700;padding:6pt 0}
 .qlic td{padding:6.5pt 0;border-bottom:1px solid #222A33}.qlic td b{color:#fff;font-weight:600}
+.attach{background:#fff !important;display:flex;align-items:center;justify-content:center}.attach::before,.attach::after{display:none}.attach img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .prep{margin-top:10pt;font-size:9.5pt;color:#E8EAED;letter-spacing:.02em}
 .soqbar{position:fixed;top:0;left:0;right:0;z-index:99;background:#1B2126;color:#fff;font:600 14px Inter,Arial,sans-serif;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
 .soqbar button{background:#F68922;color:#0D1117;border:none;font:800 14px Montserrat,Arial,sans-serif;text-transform:uppercase;padding:10px 16px;cursor:pointer}
