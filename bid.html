@@ -188,12 +188,18 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
         <div class="field"><label>Submittal date</label><input id="pDate"></div>
       </div>
       <div class="field"><label>Section title</label><input id="pTitle" value="Key Personnel"></div>
+      <div class="grid">
+        <div class="field"><label for="bAcct">Bank account # (SOQ packet only)</label><input id="bAcct" autocomplete="off" spellcheck="false"></div>
+        <div class="field"><label for="bRout">Routing # (SOQ packet only)</label><input id="bRout" autocomplete="off" spellcheck="false"></div>
+      </div>
+      <div class="sub" style="margin:0 2px">Typed here for this packet only. Never saved, never sent anywhere. Leave blank to print empty lines.</div>
     </div>
     <div class="sticky">
       <div class="sel" id="selCount"></div>
       <div class="btns">
-        <button class="btn btn-hi" id="pdfBtn">Download PDF</button>
-        <button class="btn btn-ghost" id="docBtn">Download Word</button>
+        <button class="btn btn-hi" id="soqBtn">Build SOQ Packet</button>
+        <button class="btn btn-ghost" id="pdfBtn">Simple PDF</button>
+        <button class="btn btn-ghost" id="docBtn">Word</button>
       </div>
     </div>
   </div>
@@ -206,6 +212,7 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/pdfmake.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/pdfmake@0.2.10/build/vfs_fonts.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/docx@8.5.0/build/index.umd.js"></script>
+<script src="soq/soq.js"></script>
 <script>
 /* ==========================================================================
    CONFIG
@@ -219,12 +226,13 @@ const MAX_PROJECTS_PRINTED = 4;      // per resume page
 
 // Leadership on every packet, in this order, above the project team.
 // Write each bio once here (third person, a few sentences); it can still be edited per packet on the page.
+// years and projects print on the SOQ packet bio page. Leaders with no bio are left out of the SOQ bio pages (they stay in the grid).
 const LEADERSHIP = [
-  { name: "Ryan Haggerty",  title: "President & CEO",                bio: "" },
-  { name: "Hugo Mendoza",   title: "VP of Operations",               bio: "" },
-  { name: "Don Yount",      title: "Senior Construction Advisor",    bio: "" },
-  { name: "David Cuppet",   title: "Advise Manager",                 bio: "" },
-  { name: "Patrick Dobson", title: "Construction Advisory Services", bio: "" },
+  {"name": "Ryan Haggerty", "title": "President & CEO", "bio": "Ryan Haggerty serves as President & CEO of Haggerty Construction, bringing a career built from hands-on field experience to executive leadership. Since founding the company in 2010, he has grown the organization into a 100-person, multi-division general contracting firm delivering commercial, industrial, restoration and property service projects throughout Northern California, with expansion into Southern California and Nevada. His leadership spans preconstruction, estimating, multi-trade coordination, safety, scheduling and department development, along with successful acquisitions. Grounded in hard work and long-term relationships, he stays focused on developing strong teams and delivering projects as a single, accountable partner.", "years": "25+", "projects": []},
+  {"name": "Hugo Mendoza", "title": "VP of Operations", "bio": "Hugo brings a background in civil engineering, real estate due diligence, geotechnical investigations and commercial construction. He holds a B.S. in Civil Engineering (2010) from California State Polytechnic University, Pomona, and has a proven track record managing projects from preconstruction through closeout with a focus on schedule, budget and quality. He has overseen field operations and served as the primary liaison for public and private developments, including technical facilities, medical expansions and municipal infrastructure. He is skilled in delivering high-end corporate interiors and employee spaces with complex finishes and utility requirements, and is known for clear communication, problem-solving and coordination across every project stakeholder.", "years": "15+", "projects": []},
+  {"name": "Don Yount", "title": "Senior Construction Advisor", "bio": "Don brings over 50 years of field experience to HAGGERTY. With a background spanning high-density housing, government-assisted living and custom residential projects, he is highly skilled in managing ground-up construction, jurisdictional coordination and public-sector compliance. He supports field operations across multiple sites, mentors site leadership and makes sure every project meets HAGGERTY's standards for safety, quality and performance.", "years": "50+", "projects": [{"line": "Holiday Inn Express (now Best Western) – Ground-Up Hospitality Construction (107 Rooms)", "detail": ""}, {"line": "Archer Hotel – Napa, CA – Ground-Up Hospitality / Historic Preservation & Shoring", "detail": ""}, {"line": "Hampton Inn Conversion – Oakland, CA – Hotel Conversion / Renovation", "detail": ""}, {"line": "Cypress Inn to Hampton Inn – Portland, OR – Hotel Conversion / Renovation", "detail": ""}, {"line": "Cypress Inn to Holiday Inn Express – Clackamas, OR – Hotel Conversion / Renovation", "detail": ""}, {"line": "Campus Commons – Sacramento, CA – Condominium Ground-Up Construction", "detail": ""}]},
+  {"name": "David Cuppet", "title": "Advise Manager", "bio": "", "years": "", "projects": []},
+  {"name": "Patrick Dobson", "title": "Construction Advisory Services", "bio": "", "years": "", "projects": []},
 ];
 
 /* ========================================================================== */
@@ -325,7 +333,7 @@ $("startOver").onclick = () => { result = null; picks = {}; setFile(null); $("re
 /* ---------- show results ---------- */
 const POS_SHORT = { pm: "PM", sup: "Superintendent", pe: "PE / APM", est: "Estimator" };
 function load(data){
-  result = data; picks = {};
+  result = data; picks = {}; result._photosAt = Date.now();
   const t = data.traits || {};
   $("tProject").value = t.project_name || "";
   $("tOwner").value = t.owner || "";
@@ -456,7 +464,7 @@ function selected(){
 function updateCount(){
   const n = selected().length + leaders.filter(l => l.on).length;
   $("selCount").textContent = n ? `${n} ${n === 1 ? "person" : "people"} in the packet` : "Check at least one person to build the packet";
-  $("pdfBtn").disabled = $("docBtn").disabled = !n;
+  $("pdfBtn").disabled = $("docBtn").disabled = $("soqBtn").disabled = !n;
 }
 
 /* ---------- packet model (shared by PDF and Word) ---------- */
@@ -680,6 +688,31 @@ function bioCheck(P){
   const missing = P.people.filter(p => p.leader && !p.bio).map(p => p.name);
   return !missing.length || confirm(`${missing.join(", ")} ${missing.length === 1 ? "has" : "have"} no bio yet, so ${missing.length === 1 ? "that page" : "those pages"} will show only name and title. Build anyway?`);
 }
+/* ---------- branded SOQ packet (soq/soq.js) ---------- */
+const TYPE_LABEL = t => t === "Ground-up" ? "Ground-Up Construction" : (t === "Tenant Improvement" ? "Tenant Improvement" : (t || ""));
+function soqLine(p){
+  const name = String(p.project_name || "").trim() + (p.company && p.company !== COMPANY.name ? " (with " + p.company + ")" : "");
+  return { line: [name, p.city_state, TYPE_LABEL(p.project_type)].filter(Boolean).join(" – "),
+           detail: [money(p.cost), p.year_completed].filter(Boolean).join(" · ") };
+}
+$("soqBtn").onclick = () => {
+  if (!window.HaggertySOQ) { toast("Packet template didn't load. Refresh the page."); return; }
+  if (result._photosAt && Date.now() - result._photosAt > 110 * 60 * 1000) toast("Photo links are over 2 hours old. Run the RFP again if headshots are missing.");
+  const team = selected().map(({ pos, c, bio, projects }) => ({
+    name: firstLast(c.name), title: c.current_role, bio, roleKey: pos.key,
+    projects: projects.map(soqLine)
+  }));
+  const order = ["pm", "sup", "pe", "est"];
+  team.sort((a, b) => order.indexOf(a.roleKey) - order.indexOf(b.roleKey));
+  const lead = leaders.filter(l => l.on && l.bio.trim()).map(l => ({ name: l.name, title: squishTitle(l.title), bio: l.bio.trim(), years: l.years || "", projects: l.projects || [] }));
+  const P = { project: $("tProject").value.trim(), owner: $("pFor").value.trim(), date: $("pDate").value.trim(), leaders: lead, team, photos: (result && result.photos) || {},
+    company: (result && result.company) || null, bank: { account: $("bAcct").value.trim(), routing: $("bRout").value.trim() } };
+  if (!P.company) toast("Company info didn't come back, so the Qualification pages are left out. Run the RFP again.");
+  const html = window.HaggertySOQ.buildSOQ(P, new URL("soq/", location.href).href);
+  const w = window.open("", "_blank");
+  if (!w) { toast("Allow pop-ups for this page to open the packet"); return; }
+  w.document.open(); w.document.write(html); w.document.close();
+};
 $("pdfBtn").onclick = async () => {
   const P = packet(); if (!P.people.length || !bioCheck(P)) return;
   const btn = $("pdfBtn"); btn.disabled = true; btn.textContent = "Building…";
