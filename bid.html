@@ -179,6 +179,10 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
       <div id="leaders"></div>
     </div>
     <div id="positions"></div>
+    <div class="pos" id="projWrap">
+      <h3>Project profiles <small>for the SOQ packet, best match first · <a href="projects.html" target="_blank">edit the project library</a></small></h3>
+      <div id="projects"></div>
+    </div>
 
     <!-- STEP 4 -->
     <h2 class="step"><span class="n">4</span>Build the packet</h2>
@@ -366,6 +370,7 @@ function load(data){
     picks[pos.key + "|" + c.name] = { on: i === 0, bio: c.bio || starterBio(c, pos), projects: new Set(c.projects.slice(0, MAX_PROJECTS_PRINTED).map((_, j) => j)) };
   });
   leaders = LEADERSHIP.map(l => ({ ...l, on: true }));
+  renderProjects();
   renderLeaders();
   renderPositions();
   $("results").classList.remove("hidden"); $("startOver").classList.remove("hidden");
@@ -427,6 +432,27 @@ function renderPositions(){
     wrap.appendChild(div);
   }
   updateCount();
+}
+
+/* ---------- company project profiles (from the project library) ---------- */
+let projOn = new Set();
+function renderProjects(){
+  const list = (result && result.projects) || [];
+  projOn = new Set(list.slice(0, 3).map((_, i) => i));
+  $("projWrap").classList.toggle("hidden", !list.length);
+  $("projects").innerHTML = list.map((p, i) => `
+    <label class="cand${projOn.has(i) ? " on" : ""}" style="display:block;cursor:pointer"><div class="top">
+      <input type="checkbox" data-i="${i}" ${projOn.has(i) ? "checked" : ""}>
+      <div class="who"><b>${esc(p.name)}</b>
+        <span>${esc([p.city_state, p.vertical, p.project_type, money(p.cost), sqft(p.square_footage), p.year_completed].filter(Boolean).join(" · "))}${p.photos && p.photos.length ? "" : " · no photo yet"}</span>
+        <div>${(p.reasons || []).slice(0, 4).map(r => `<span class="chip why">${esc(r)}</span>`).join("")}</div>
+      </div>
+      <div class="score"><b>${p.score}</b></div>
+    </div></label>`).join("");
+  $("projects").querySelectorAll("input").forEach(x => x.onchange = () => {
+    const i = +x.dataset.i; if (x.checked) projOn.add(i); else projOn.delete(i);
+    x.closest(".cand").classList.toggle("on", x.checked);
+  });
 }
 
 /* ---------- leadership (always offered, on by default) ---------- */
@@ -747,6 +773,7 @@ $("soqBtn").onclick = async () => {
     try { P.attachments.push({ title: f.title.trim() || f.file.name, pages: await renderAttachment(f.file) }); }
     catch (e) { console.error(e); toast("Couldn't read " + f.file.name); }
   }
+  P.projects = ((result && result.projects) || []).filter((_, i) => projOn.has(i));
   const html = window.HaggertySOQ.buildSOQ(P, new URL("soq/", location.href).href);
   w.location.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
 };

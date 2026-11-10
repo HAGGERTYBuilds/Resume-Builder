@@ -72,6 +72,30 @@ function tocPage(rows) {
 </section>`;
 }
 
+/* ---------- Project profiles ---------- */
+function money(v) { const n = parseFloat(v); if (!n || n < 10000) return ""; return n >= 1e6 ? "$" + (Math.round(n / 1e5) / 10) + "M" : "$" + Math.round(n).toLocaleString(); }
+function projPage(p) {
+  const facts = [["Owner", p.owner], ["Location", p.city_state], ["Market", p.vertical], ["Type", p.project_type],
+    ["Value", money(p.cost)], ["Size", p.square_footage ? Math.round(p.square_footage).toLocaleString() + " SF" : ""],
+    ["Completed", p.year_completed ? String(p.year_completed) : ""], ["Delivery", p.delivery_method]].filter(f => f[1]);
+  const ph = p.photos || [];
+  const hero = ph[0] ? `<div class="pphero" style="background-image:url('${esc(ph[0])}')"></div>` : "";
+  const extra = ph.slice(1, 3).map(u => `<div style="background-image:url('${esc(u)}')"></div>`).join("");
+  const paras = String(p.description || "").split(/\n\s*\n/).map(t => t.trim()).filter(Boolean).map(t => `<p>${esc(t)}</p>`).join("");
+  const parts = String(p.name).trim().split(/\s+/); const a = parts.slice(0, Math.ceil(parts.length / 2)).join(" "), b = parts.slice(Math.ceil(parts.length / 2)).join(" ");
+  return `<section class="page">
+  <div class="body">
+    <div class="label">Project Profiles</div>
+    <h1>${esc(a)} <em>${esc(b)}</em></h1>
+    ${hero}
+    <div class="pgrid">
+      <div class="pdesc">${paras}${extra ? `<div class="pextra">${extra}</div>` : ""}</div>
+      <div class="pfacts">${facts.map(([k, v]) => `<div><span>${esc(k)}</span><b>${esc(v)}</b></div>`).join("")}</div>
+    </div>
+  </div>
+  ${foot("Project Profiles")}
+</section>`;
+}
 /* ---------- Client References ---------- */
 function refsPage(R) {
   const cards = R.map(([n, ph, items, rel]) => `<div class="rcard"><b>${esc(n)}</b><div class="rph">${esc(ph)}</div><ul>${(items || []).map(i => `<li>${esc(i)}</li>`).join("")}</ul><div class="rrel">Relationship: <span>${esc(rel)}</span></div></div>`).join("");
@@ -147,6 +171,9 @@ function buildSOQ(P, base) {
   const seen = new Set();
   const list = people.filter(p => { const k = key(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
   list.forEach((p, i) => pages.push(bioPage(p, photos, (i % SOQ_CONFIG.bandCount) + 1)));
+  const projStart = pages.length + 1;
+  const projList = (P.projects || []);
+  projList.forEach(p => pages.push(projPage(p)));
   const C = P.company;
   const refPage = (C && C.references && C.references.length) ? pages.length + 1 : 0;
   if (refPage) pages.push(refsPage(C.references));
@@ -166,6 +193,7 @@ function buildSOQ(P, base) {
     { section: "The Company" }, { name: "Why HAGGERTY", page: 5 }, { name: "Executive Leadership", page: 6 },
     { section: "Team Resumes & Relevant Experience" },
     ...list.map((p, i) => ({ name: p.name, sub: p.title, page: bioStart + i + 1 })),
+    ...(projList.length ? [{ section: "Project Profiles" }, ...projList.map((p, i) => ({ name: p.name, sub: p.city_state, page: projStart + i }))] : []),
     ...(refPage ? [{ section: "Client References" }, { name: "Client References", page: refPage }] : []),
     ...(C && C.contacts ? [{ section: "Qualification Information" }, { name: "Company Contacts", page: qualStart + 2 },
       { name: "Licensing, Bonding & Insurance", page: qualStart + 3 }, { name: "Current City Business Licenses", page: qualStart + 4 }] : []),
@@ -200,6 +228,14 @@ ${CSS}
 .qlic{width:100%;border-collapse:collapse;font-size:10pt;color:#E8EAED}
 .qlic th{text-align:left;font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#F68922;font-weight:700;padding:6pt 0}
 .qlic td{padding:6.5pt 0;border-bottom:1px solid #222A33}.qlic td b{color:#fff;font-weight:600}
+.pphero{height:3.6in;background-size:cover;background-position:center;margin:2pt 0 18pt}
+.pgrid{display:grid;grid-template-columns:1fr 2.15in;gap:.35in}
+.pdesc p{font-size:10.4pt;line-height:1.7;color:#D5D9DE;margin-bottom:10pt}
+.pextra{display:grid;grid-template-columns:1fr 1fr;gap:8pt;margin-top:6pt}.pextra div{height:1.5in;background-size:cover;background-position:center}
+.pfacts{border-top:2px solid #F68922}
+.pfacts div{padding:8pt 0;border-bottom:1px solid #222A33}
+.pfacts span{display:block;font-family:Montserrat;font-weight:800;font-size:7.5pt;letter-spacing:.16em;text-transform:uppercase;color:#F68922}
+.pfacts b{display:block;font-size:10.5pt;color:#fff;font-weight:600;margin-top:2pt}
 .rgrid{display:grid;grid-template-columns:1fr 1fr;gap:14pt .3in}
 .rcard{border-top:2px solid #F68922;padding-top:9pt;min-height:1.55in}
 .rcard b{display:block;font-family:Montserrat;font-weight:900;font-size:12pt;color:#fff}

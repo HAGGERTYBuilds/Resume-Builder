@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex, nofollow">
+<title>Haggerty Project Library</title>
+<style>
+/* Project Library: add and edit company projects for SOQ project profile pages.
+   Data lives in Supabase (company_projects + private project-photos bucket), reached only through n8n with the bid code. */
+@font-face{font-family:Inter;font-weight:400;src:url('soq/fonts/inter-latin-400-normal.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:600;src:url('soq/fonts/inter-latin-600-normal.woff2') format('woff2')}
+@font-face{font-family:Inter;font-weight:700;src:url('soq/fonts/inter-latin-700-normal.woff2') format('woff2')}
+@font-face{font-family:Montserrat;font-weight:900;src:url('soq/fonts/montserrat-latin-900-normal.woff2') format('woff2')}
+:root{--ink:#1B2126;--steel:#2E3640;--muted:#69727C;--bg:#EDEFF1;--card:#fff;--line:#D6DBDF;--hi:#F68922;--hi-dark:#D9731A;--hi-soft:#FEF0E3;--err:#B4231C;--err-soft:#FBE7E6;--ok:#1F7A34;--ok-soft:#E4F2E6}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.45;padding-bottom:4rem}
+.wrap{max-width:900px;margin:0 auto;padding:0 16px}
+.hidden{display:none!important}
+.bar{background:var(--ink);color:#fff;padding:14px 0}
+.bar .wrap{display:flex;align-items:center;gap:12px}
+.bar img{height:34px}
+.bar h1{font-family:Montserrat,sans-serif;font-weight:900;font-size:17px;text-transform:uppercase;letter-spacing:.04em}
+.bar small{display:block;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:#9AA3AC}
+.bar .sp{flex:1}
+.bar button{background:rgba(255,255,255,.12);color:#fff;border:none;border-radius:7px;font:600 12px Inter,sans-serif;text-transform:uppercase;padding:8px 11px;cursor:pointer}
+h2{font-family:Montserrat,sans-serif;font-weight:900;font-size:20px;text-transform:uppercase;margin:26px 2px 10px;display:flex;align-items:center;gap:10px}
+.card{background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:18px 16px;margin-bottom:14px}
+label{display:block;font-weight:600;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--steel);margin:0 0 6px 2px}
+input,select,textarea{width:100%;font:16px Inter,system-ui,sans-serif;color:var(--ink);background:#fff;border:1.5px solid #C2C8CD;border-radius:8px;padding:10px 12px;min-height:44px}
+textarea{min-height:170px;resize:vertical}
+input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-color:var(--hi)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.field{margin-bottom:12px}
+.btn{font:800 15px Montserrat,sans-serif;text-transform:uppercase;letter-spacing:.03em;border:none;border-radius:10px;padding:13px 18px;cursor:pointer;min-height:48px}
+.btn-hi{background:var(--hi);color:#1B2126}.btn-hi:hover{background:var(--hi-dark)}.btn-hi:disabled{opacity:.6;cursor:default}
+.btn-ghost{background:#fff;color:var(--steel);border:1.5px solid #C2C8CD}
+.btns{display:flex;gap:10px;flex-wrap:wrap}.btns .btn{flex:1 1 180px}
+.err{background:var(--err-soft);color:var(--err);border-radius:8px;padding:10px 12px;font-weight:600;font-size:14px;margin-top:10px}
+.list{display:grid;gap:10px}
+.proj{display:flex;gap:12px;align-items:center;background:#fff;border:1.5px solid var(--line);border-radius:10px;padding:10px;cursor:pointer}
+.proj:hover{border-color:var(--hi)}
+.proj .th{width:96px;height:64px;border-radius:6px;background:#E4E7EA center/cover;flex:0 0 auto}
+.proj b{display:block}.proj span{color:var(--muted);font-size:14px}
+.proj .tag{margin-left:auto;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.proj.off{opacity:.55}
+.photos{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+.ph{position:relative;width:150px;height:100px;border-radius:8px;background:#E4E7EA center/cover}
+.ph button{position:absolute;top:6px;right:6px;background:rgba(27,33,38,.85);color:#fff;border:none;border-radius:6px;font:700 11px Inter;padding:4px 7px;cursor:pointer}
+.ph .first{position:absolute;left:6px;bottom:6px;background:var(--hi);color:#1B2126;font:700 10px Inter;padding:2px 6px;border-radius:4px;text-transform:uppercase}
+.sub{color:var(--muted);font-size:14px;margin:4px 2px 0}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(120px);background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;font-weight:600;transition:transform .25s;z-index:9}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.chk{display:flex;align-items:center;gap:10px;font-weight:600;font-size:15px;text-transform:none;letter-spacing:0;color:var(--ink)}
+.chk input{width:22px;height:22px;min-height:0}
+</style>
+</head>
+<body>
+<div class="bar"><div class="wrap">
+  <img src="soq/logo.png" alt="HAGGERTY">
+  <div><h1>Project Library</h1><small>Profiles for SOQ packets</small></div>
+  <div class="sp"></div>
+  <button id="forget" class="hidden">Forget code</button>
+</div></div>
+
+<div class="wrap">
+  <!-- access gate -->
+  <div id="gate" class="hidden">
+    <h2>Enter the bid code</h2>
+    <div class="card">
+      <div class="field"><label for="codeIn">Bid access code</label><input id="codeIn" autocomplete="off"></div>
+      <button class="btn btn-hi" id="codeBtn">Open library</button>
+      <div class="err hidden" id="codeErr"></div>
+    </div>
+  </div>
+
+  <div id="app" class="hidden">
+    <h2>Projects <button class="btn btn-hi" id="newBtn" style="margin-left:auto;min-height:40px;padding:9px 14px">Add project</button></h2>
+    <div class="sub" style="margin-bottom:12px">The Bid Team Builder ranks these against each RFP and prints the ones you pick as profile pages. Tap a project to edit it.</div>
+    <div class="list" id="list"><div class="sub">Loading projects…</div></div>
+
+    <div id="editor" class="hidden">
+      <h2 id="edTitle">Add project</h2>
+      <div class="card">
+        <div class="field"><label for="fName">Project name</label><input id="fName"></div>
+        <div class="grid">
+          <div class="field"><label for="fOwner">Owner / client</label><input id="fOwner"></div>
+          <div class="field"><label for="fCity">City, ST</label><input id="fCity" placeholder="Stockton, CA"></div>
+        </div>
+        <div class="grid">
+          <div class="field"><label for="fVert">Market</label><select id="fVert"></select></div>
+          <div class="field"><label for="fType">Type</label><select id="fType"><option value="">Not set</option><option>Ground-up</option><option>Tenant Improvement</option></select></div>
+          <div class="field"><label for="fDel">Delivery method</label><input id="fDel" placeholder="Design-Build"></div>
+        </div>
+        <div class="grid">
+          <div class="field"><label for="fCost">Value ($)</label><input id="fCost" inputmode="numeric" placeholder="6000000"></div>
+          <div class="field"><label for="fSf">Building SF</label><input id="fSf" inputmode="numeric"></div>
+          <div class="field"><label for="fYear">Year completed</label><input id="fYear" inputmode="numeric" placeholder="Planned year if underway"></div>
+        </div>
+        <div class="field"><label for="fDesc">Project write-up</label><textarea id="fDesc" placeholder="Two or three short paragraphs: what was built, for whom, scope highlights and anything that made it hard. Leave a blank line between paragraphs."></textarea></div>
+        <div class="field"><label>Photos (first one is the large photo, up to 3 print)</label>
+          <div class="photos" id="photos"></div>
+          <input id="photoIn" type="file" accept="image/jpeg,image/png" multiple style="margin-top:10px">
+          <div class="sub">Wide, landscape photos work best. They're resized to 2000 px wide before upload.</div>
+        </div>
+        <div class="field"><label class="chk"><input type="checkbox" id="fActive" checked> Use in bid matching</label></div>
+        <div class="btns">
+          <button class="btn btn-hi" id="saveBtn">Save project</button>
+          <button class="btn btn-ghost" id="cancelBtn">Cancel</button>
+        </div>
+        <div class="err hidden" id="saveErr"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== CONFIG ===================== */
+const LIB_URL = "https://haggertybuilds.app.n8n.cloud/webhook/project-library";
+// Keep in step with the Vertical list in the entry app, the workbook Setup tab and the bid matcher.
+const VERTICALS = ["Industrial","Office / TI","Retail","Hospitality","Multi-Family","Senior Living","Healthcare","Auto","QSR","Public / Civic","Education"];
+/* ================================================== */
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const store = { get(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }, set(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }, del(k){ try{ localStorage.removeItem(k); }catch(e){} } };
+const toast = m => { const t = $("toast"); t.textContent = m; t.classList.add("show"); clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), 2600); };
+const money = v => { const n = parseFloat(v); if (!n || n < 10000) return ""; return n >= 1e6 ? "$" + (Math.round(n / 1e5) / 10) + "M" : "$" + Math.round(n).toLocaleString(); };
+$("fVert").innerHTML = '<option value="">Not set</option>' + VERTICALS.map(v => `<option>${esc(v)}</option>`).join("");
+
+let code = store.get("bidCode");
+let projects = [];
+let editing = null;   // { id, slug, photos: [{ path, url }] }
+
+async function api(body){
+  const r = await fetch(LIB_URL, { method: "POST", headers: { "Content-Type": "application/json", "x-bid-code": code }, body: JSON.stringify(body) });
+  if (r.status === 401) { store.del("bidCode"); showGate("That code didn't work. Check it with Liam and try again."); throw new Error("bad code"); }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(j.error || ("Server error " + r.status));
+  return j;
+}
+
+/* gate */
+function showGate(msg){ $("app").classList.add("hidden"); $("gate").classList.remove("hidden"); $("forget").classList.add("hidden"); if (msg) { $("codeErr").textContent = msg; $("codeErr").classList.remove("hidden"); } }
+function showApp(){ $("gate").classList.add("hidden"); $("app").classList.remove("hidden"); $("forget").classList.remove("hidden"); load(); }
+$("codeBtn").onclick = () => { const v = $("codeIn").value.trim(); if (!v) return; code = v; store.set("bidCode", v); $("codeErr").classList.add("hidden"); showApp(); };
+$("codeIn").onkeydown = e => { if (e.key === "Enter") $("codeBtn").click(); };
+$("forget").onclick = () => { store.del("bidCode"); code = null; showGate(); };
+if (code) showApp(); else showGate();
+
+/* list */
+async function load(){
+  $("list").innerHTML = '<div class="sub">Loading projects…</div>';
+  try { projects = (await api({ action: "list" })).projects || []; renderList(); }
+  catch (e) { if (e.message !== "bad code") $("list").innerHTML = `<div class="err">Couldn't load projects (${esc(e.message)}). Refresh to try again.</div>`; }
+}
+function renderList(){
+  if (!projects.length) { $("list").innerHTML = '<div class="sub">No projects yet. Add the first one.</div>'; return; }
+  $("list").innerHTML = projects.map((p, i) => `
+    <div class="proj${p.active ? "" : " off"}" data-i="${i}" tabindex="0">
+      <div class="th" style="background-image:url('${esc((p.photo_urls || [])[0] || "")}')"></div>
+      <div><b>${esc(p.name)}</b><span>${esc([p.city_state, p.vertical, p.project_type, money(p.cost), p.square_footage ? Math.round(p.square_footage).toLocaleString() + " SF" : "", p.year_completed].filter(Boolean).join(" · "))}</span></div>
+      <div class="tag">${p.active ? ((p.photo_paths || []).length ? "" : "No photo") : "Hidden"}</div>
+    </div>`).join("");
+  $("list").querySelectorAll(".proj").forEach(el => { el.onclick = () => openEditor(projects[+el.dataset.i]); el.onkeydown = e => { if (e.key === "Enter") el.click(); }; });
+}
+
+/* editor */
+function slugify(s){ return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 50) || "project"; }
+function openEditor(p){
+  editing = p ? { id: p.id, slug: p.slug || slugify(p.name), photos: (p.photo_paths || []).map((path, k) => ({ path, url: (p.photo_urls || [])[k] || "" })) }
+              : { id: null, slug: null, photos: [] };
+  $("edTitle").textContent = p ? "Edit: " + p.name : "Add project";
+  $("fName").value = p?.name || ""; $("fOwner").value = p?.owner || ""; $("fCity").value = p?.city_state || "";
+  $("fVert").value = p?.vertical || ""; $("fType").value = p?.project_type || ""; $("fDel").value = p?.delivery_method || "";
+  $("fCost").value = p?.cost ? Math.round(p.cost) : ""; $("fSf").value = p?.square_footage ? Math.round(p.square_footage) : ""; $("fYear").value = p?.year_completed || "";
+  $("fDesc").value = p?.description || ""; $("fActive").checked = p ? p.active !== false : true;
+  $("saveErr").classList.add("hidden");
+  renderPhotos(); $("editor").classList.remove("hidden"); $("editor").scrollIntoView({ behavior: "smooth" });
+}
+function renderPhotos(){
+  $("photos").innerHTML = editing.photos.map((ph, k) => `<div class="ph" style="background-image:url('${esc(ph.url)}')">${k === 0 ? '<span class="first">Main</span>' : ""}<button data-k="${k}" type="button">Remove</button></div>`).join("") || '<div class="sub">No photos yet.</div>';
+  $("photos").querySelectorAll("button").forEach(b => b.onclick = () => { editing.photos.splice(+b.dataset.k, 1); renderPhotos(); });
+}
+$("newBtn").onclick = () => openEditor(null);
+$("cancelBtn").onclick = () => { $("editor").classList.add("hidden"); editing = null; };
+
+async function shrink(file){
+  const img = await createImageBitmap(file);
+  const sc = Math.min(1, 2000 / img.width);
+  const c = document.createElement("canvas"); c.width = Math.round(img.width * sc); c.height = Math.round(img.height * sc);
+  c.getContext("2d").drawImage(img, 0, 0, c.width, c.height);
+  return await new Promise(res => c.toBlob(res, "image/jpeg", 0.86));
+}
+$("photoIn").onchange = async e => {
+  const files = [...e.target.files].slice(0, 6 - editing.photos.length); e.target.value = "";
+  if (!files.length) { toast("Up to 6 photos per project"); return; }
+  if (!editing.slug) editing.slug = slugify($("fName").value) + "-" + Date.now().toString(36);
+  toast("Uploading " + files.length + " photo" + (files.length > 1 ? "s" : "") + "…");
+  try {
+    const { uploads } = await api({ action: "upload_urls", slug: editing.slug, count: files.length });
+    for (let k = 0; k < files.length; k++) {
+      const blob = await shrink(files[k]);
+      const r = await fetch(uploads[k].uploadUrl, { method: "PUT", headers: { "Content-Type": "image/jpeg", "x-upsert": "true" }, body: blob });
+      if (!r.ok) throw new Error("upload failed (" + r.status + ")");
+      editing.photos.push({ path: uploads[k].path, url: URL.createObjectURL(blob) });
+    }
+    renderPhotos(); toast("Photos added. Save the project to keep them.");
+  } catch (err) { if (err.message !== "bad code") toast("Photo upload failed: " + err.message); }
+};
+
+$("saveBtn").onclick = async () => {
+  const name = $("fName").value.trim();
+  if (!name) { $("saveErr").textContent = "Add a project name before saving."; $("saveErr").classList.remove("hidden"); $("fName").focus(); return; }
+  const btn = $("saveBtn"); btn.disabled = true; btn.textContent = "Saving…";
+  try {
+    const project = { id: editing.id, slug: editing.slug || undefined, name, owner: $("fOwner").value, city_state: $("fCity").value, vertical: $("fVert").value,
+      project_type: $("fType").value, delivery_method: $("fDel").value, cost: $("fCost").value, square_footage: $("fSf").value, year_completed: $("fYear").value,
+      description: $("fDesc").value.replace(/—/g, ", "), photo_paths: editing.photos.map(p => p.path), active: $("fActive").checked };
+    await api({ action: "save", project });
+    toast("Saved " + name); $("editor").classList.add("hidden"); editing = null; load();
+  } catch (e) { if (e.message !== "bad code") { $("saveErr").textContent = "Couldn't save: " + e.message; $("saveErr").classList.remove("hidden"); } }
+  finally { btn.disabled = false; btn.textContent = "Save project"; }
+};
+</script>
+</body>
+</html>
