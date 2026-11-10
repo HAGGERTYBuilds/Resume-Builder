@@ -748,7 +748,7 @@ $("soqBtn").onclick = async () => {
     catch (e) { console.error(e); toast("Couldn't read " + f.file.name); }
   }
   const html = window.HaggertySOQ.buildSOQ(P, new URL("soq/", location.href).href);
-  w.document.open(); w.document.write(html); w.document.close();
+  w.location.href = URL.createObjectURL(new Blob([html], { type: "text/html" }));
 };
 $("pdfBtn").onclick = async () => {
   const P = packet(); if (!P.people.length || !bioCheck(P)) return;

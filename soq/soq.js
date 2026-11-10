@@ -72,6 +72,19 @@ function tocPage(rows) {
 </section>`;
 }
 
+/* ---------- Client References ---------- */
+function refsPage(R) {
+  const cards = R.map(([n, ph, items, rel]) => `<div class="rcard"><b>${esc(n)}</b><div class="rph">${esc(ph)}</div><ul>${(items || []).map(i => `<li>${esc(i)}</li>`).join("")}</ul><div class="rrel">Relationship: <span>${esc(rel)}</span></div></div>`).join("");
+  return `<section class="page">
+  <div class="body">
+    <div class="label">Client Information</div>
+    <h1>Client <em>References</em></h1>
+    <p class="lede">The owners and property managers below have worked with HAGGERTY and are available to speak about our work.</p>
+    <div class="rgrid">${cards}</div>
+  </div>
+  ${foot("Client References")}
+</section>`;
+}
 /* ---------- Qualification Information (data comes from n8n behind the bid code) ---------- */
 function qualPages(C, bank) {
   const head = (a, b) => `<div class="label">Qualification Information</div><h1>${esc(a)} <em>${esc(b)}</em></h1><div class="qaddr">${esc(C.name)} · ${esc(C.address)} · ${esc(C.phone)}</div>`;
@@ -134,8 +147,10 @@ function buildSOQ(P, base) {
   const seen = new Set();
   const list = people.filter(p => { const k = key(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
   list.forEach((p, i) => pages.push(bioPage(p, photos, (i % SOQ_CONFIG.bandCount) + 1)));
-  const qualStart = pages.length;
   const C = P.company;
+  const refPage = (C && C.references && C.references.length) ? pages.length + 1 : 0;
+  if (refPage) pages.push(refsPage(C.references));
+  const qualStart = pages.length;
   if (C && C.contacts) pages.push(...qualPages(C, P.bank));
   // Insurance / bonding paperwork attached for this packet (rendered page images, never uploaded anywhere)
   const att = [];
@@ -151,6 +166,7 @@ function buildSOQ(P, base) {
     { section: "The Company" }, { name: "Why HAGGERTY", page: 5 }, { name: "Executive Leadership", page: 6 },
     { section: "Team Resumes & Relevant Experience" },
     ...list.map((p, i) => ({ name: p.name, sub: p.title, page: bioStart + i + 1 })),
+    ...(refPage ? [{ section: "Client References" }, { name: "Client References", page: refPage }] : []),
     ...(C && C.contacts ? [{ section: "Qualification Information" }, { name: "Company Contacts", page: qualStart + 2 },
       { name: "Licensing, Bonding & Insurance", page: qualStart + 3 }, { name: "Current City Business Licenses", page: qualStart + 4 }] : []),
     ...(att.length ? [{ section: "Insurance & Bonding Documents" }, ...att.map(a => ({ name: a.title, page: a.page }))] : [])
@@ -184,6 +200,13 @@ ${CSS}
 .qlic{width:100%;border-collapse:collapse;font-size:10pt;color:#E8EAED}
 .qlic th{text-align:left;font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#F68922;font-weight:700;padding:6pt 0}
 .qlic td{padding:6.5pt 0;border-bottom:1px solid #222A33}.qlic td b{color:#fff;font-weight:600}
+.rgrid{display:grid;grid-template-columns:1fr 1fr;gap:14pt .3in}
+.rcard{border-top:2px solid #F68922;padding-top:9pt;min-height:1.55in}
+.rcard b{display:block;font-family:Montserrat;font-weight:900;font-size:12pt;color:#fff}
+.rph{font-size:9.6pt;color:#F68922;font-weight:600;margin:3pt 0 6pt}
+.rcard ul{list-style:none}.rcard li{font-size:9.4pt;line-height:1.45;color:#D5D9DE;padding-left:10pt;position:relative}
+.rcard li::before{content:'';position:absolute;left:0;top:6.5pt;width:5pt;height:1.5px;background:#F68922}
+.rrel{font-size:8pt;letter-spacing:.12em;text-transform:uppercase;color:#A9B0B8;margin-top:6pt}.rrel span{color:#fff;font-weight:600}
 .attach{background:#fff !important;display:flex;align-items:center;justify-content:center}.attach::before,.attach::after{display:none}.attach img{max-width:100%;max-height:100%;object-fit:contain;display:block}
 .prep{margin-top:10pt;font-size:9.5pt;color:#E8EAED;letter-spacing:.02em}
 .soqbar{position:fixed;top:0;left:0;right:0;z-index:99;background:#1B2126;color:#fff;font:600 14px Inter,Arial,sans-serif;padding:10px 16px;display:flex;gap:12px;align-items:center;flex-wrap:wrap}
