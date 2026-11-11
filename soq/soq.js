@@ -254,7 +254,7 @@ body{padding-top:56px} .page{margin:0 auto 16px}
 <div class="soqbar"><button onclick="window.print()">Save as PDF</button><span>In the print window pick "Save as PDF". If backgrounds look white, turn on "Background graphics" under More settings.</span></div>
 ${html}
 <script>
-function fitBands(){document.querySelectorAll('.bio').forEach(function(p){var b=p.querySelector('.bband2');if(!b)return;b.style.display='';var lim=b.getBoundingClientRect().top-12;var bot=Math.max.apply(null,[].map.call(p.querySelectorAll('.bright,.bleft'),function(e){return e.getBoundingClientRect().bottom}));if(bot>lim)b.style.display='none';});}
+function fitBands(){document.querySelectorAll('.pextra').forEach(function(x){x.style.display='';var f=x.closest('.page').querySelector('.foot');if(f&&x.getBoundingClientRect().bottom>f.getBoundingClientRect().top-12)x.style.display='none';});document.querySelectorAll('.bio').forEach(function(p){var b=p.querySelector('.bband2');if(!b)return;b.style.display='';var lim=b.getBoundingClientRect().top-12;var bot=Math.max.apply(null,[].map.call(p.querySelectorAll('.bright,.bleft'),function(e){return e.getBoundingClientRect().bottom}));if(bot>lim)b.style.display='none';});}
 (document.fonts?document.fonts.ready:Promise.resolve()).then(fitBands);window.addEventListener('beforeprint',fitBands);
 </script></body></html>`;
 }

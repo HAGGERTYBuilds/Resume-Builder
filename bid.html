@@ -205,9 +205,8 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
     <div class="sticky">
       <div class="sel" id="selCount"></div>
       <div class="btns">
-        <button class="btn btn-hi" id="soqBtn">Build SOQ Packet</button>
+        <button class="btn btn-hi" id="soqBtn">Stylized PDF</button>
         <button class="btn btn-ghost" id="pdfBtn">Simple PDF</button>
-        <button class="btn btn-ghost" id="docBtn">Word</button>
       </div>
     </div>
   </div>
@@ -494,7 +493,7 @@ function selected(){
 function updateCount(){
   const n = selected().length + leaders.filter(l => l.on).length;
   $("selCount").textContent = n ? `${n} ${n === 1 ? "person" : "people"} in the packet` : "Check at least one person to build the packet";
-  $("pdfBtn").disabled = $("docBtn").disabled = $("soqBtn").disabled = !n;
+  $("pdfBtn").disabled = $("soqBtn").disabled = !n;
 }
 
 /* ---------- packet model (shared by PDF and Word) ---------- */
@@ -510,7 +509,8 @@ function packet(){
     facts: [["Location", $("tCity").value], ["Value", $("tCost").value], ["Size", $("tSf").value], ["Delivery", $("tDelivery").value]].filter(f => String(f[1] || "").trim()),
     people: [
       ...leaders.filter(l => l.on).map(l => ({ name: l.name, role: "Leadership", title: squishTitle(l.title), company: COMPANY.name,
-        bio: l.bio.trim(), highlights: [], projects: [], leader: true })),
+        bio: l.bio.trim(), highlights: [], leader: true,
+        projects: (l.projects || []).map(x => ({ name: x.line, meta: "", size: x.detail || "", role: "", scope: "" })) })),
       ...people.map(({ pos, c, bio, projects }) => ({
       name: firstLast(c.name), role: pos.label === "Project Engineer / APM" ? (c.current_role === "Assistant Project Manager" ? "Assistant Project Manager" : "Project Engineer") : pos.label,
       title: c.current_role, company: c.company, bio, highlights: c.highlights || [],
@@ -596,6 +596,21 @@ function buildPdf(P){
       ...sorted.map(p => [{ text: p.name, bold: true, fontSize: 10 }, { text: p.role, fontSize: 10 }, { text: p.title, fontSize: 10, color: MUTED }]) ] },
       layout: { hLineWidth: (i) => i === 1 ? 1.2 : 0.6, vLineWidth: () => 0, hLineColor: (i) => i === 1 ? O : BRAND.line, paddingTop: () => 4.5, paddingBottom: () => 4.5, paddingLeft: () => 0 } });
 
+  // company project profiles picked in step 3
+  if ((P.companyProjects || []).length) {
+    content.push({ text: "", pageBreak: "before" },
+      { text: "RELEVANT PROJECTS", fontSize: 9, bold: true, color: O, characterSpacing: 1.5 },
+      { text: "HAGGERTY Project Experience", fontSize: 20, bold: true, color: INK, margin: [0, 2, 0, 16] });
+    P.companyProjects.forEach(x => {
+      const facts = [x.owner, x.city_state, x.vertical, x.project_type, money(x.cost), sqft(x.square_footage), x.year_completed ? "Completed " + x.year_completed : "", x.delivery_method].filter(Boolean).join("  ·  ");
+      content.push({ unbreakable: true, table: { widths: [3, "*"], body: [[{ text: "", fillColor: O }, { stack: [
+        { text: x.name, bold: true, fontSize: 12.5, color: INK },
+        { text: facts, fontSize: 9, color: MUTED, margin: [0, 2, 0, 4] },
+        ...String(x.description || "").split(/\n\s*\n/).filter(t => t.trim()).map(t => ({ text: t.trim(), fontSize: 9.5, color: INK, lineHeight: 1.25, margin: [0, 0, 0, 4] })) ], margin: [8, 2, 0, 2] }]] },
+        layout: "noBorders", margin: [0, 0, 0, 14] });
+    });
+  }
+
   // resumes
   for (const p of sorted) {
     content.push({ text: "", pageBreak: "before" },
@@ -613,7 +628,7 @@ function buildPdf(P){
       p.projects.forEach(x => content.push({ unbreakable: true, table: { widths: [3, "*"], body: [[{ text: "", fillColor: O }, { stack: [
         { text: x.name, bold: true, fontSize: 11.5, color: INK },
         { text: [x.meta, x.size].filter(Boolean).join("  ·  "), fontSize: 9, color: MUTED, margin: [0, 1, 0, 2] },
-        { text: [{ text: "Role: ", bold: true }, x.role], fontSize: 9.5, color: INK, margin: [0, 0, 0, 2] },
+        x.role ? { text: [{ text: "Role: ", bold: true }, x.role], fontSize: 9.5, color: INK, margin: [0, 0, 0, 2] } : "",
         x.scope ? { text: x.scope, fontSize: 9.5, color: INK, lineHeight: 1.2 } : "" ], margin: [8, 2, 0, 2] }]] },
         layout: "noBorders", margin: [0, 0, 0, 10] }));
     }
@@ -779,19 +794,13 @@ $("soqBtn").onclick = async () => {
 };
 $("pdfBtn").onclick = async () => {
   const P = packet(); if (!P.people.length || !bioCheck(P)) return;
+  P.companyProjects = ((result && result.projects) || []).filter((_, i) => projOn.has(i));
   const btn = $("pdfBtn"); btn.disabled = true; btn.textContent = "Building…";
   try {
     const blob = await new Promise((res, rej) => { try { pdfMake.createPdf(buildPdf(P)).getBlob(res); } catch (e) { rej(e); } });
     download(blob, P.fileBase + ".pdf"); toast("PDF downloaded");
   } catch (e) { console.error(e); toast("PDF failed: " + e.message); }
-  finally { btn.disabled = false; btn.textContent = "Download PDF"; }
-};
-$("docBtn").onclick = async () => {
-  const P = packet(); if (!P.people.length || !bioCheck(P)) return;
-  const btn = $("docBtn"); btn.disabled = true; btn.textContent = "Building…";
-  try { download(await buildDocx(P), P.fileBase + ".docx"); toast("Word file downloaded"); }
-  catch (e) { console.error(e); toast("Word failed: " + e.message); }
-  finally { btn.disabled = false; btn.textContent = "Download Word"; }
+  finally { btn.disabled = false; btn.textContent = "Simple PDF"; }
 };
 </script>
 </body>
