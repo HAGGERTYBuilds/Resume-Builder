@@ -77,6 +77,10 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
   <div id="app" class="hidden">
     <h2>Projects <button class="btn btn-hi" id="newBtn" style="margin-left:auto;min-height:40px;padding:9px 14px">Add project</button></h2>
     <div class="sub" style="margin-bottom:12px">The Bid Team Builder ranks these against each RFP and prints the ones you pick as profile pages. Tap a project to edit it.</div>
+    <div class="card" style="display:flex;gap:12px;align-items:center;flex-wrap:wrap">
+      <div style="flex:1 1 260px"><b>Staff project portfolio</b><div class="sub" style="margin:2px 0 0">Every project staff have entered in the resume builder, as a fresh Excel file.</div></div>
+      <button class="btn btn-ghost" id="exportBtn" type="button">Download portfolio (.xlsx)</button>
+    </div>
     <div class="list" id="list"><div class="sub">Loading projects…</div></div>
 
     <div id="editor" class="hidden">
@@ -118,6 +122,7 @@ input:focus,select:focus,textarea:focus{outline:3px solid var(--hi-soft);border-
 <script>
 /* ===================== CONFIG ===================== */
 const LIB_URL = "https://haggertybuilds.app.n8n.cloud/webhook/project-library";
+const EXPORT_URL = "https://haggertybuilds.app.n8n.cloud/webhook/portfolio-export";
 // Keep in step with the Vertical list in the entry app, the workbook Setup tab and the bid matcher.
 const VERTICALS = ["Industrial","Office / TI","Retail","Hospitality","Multi-Family","Senior Living","Healthcare","Auto","QSR","Public / Civic","Education"];
 /* ================================================== */
@@ -147,6 +152,22 @@ $("codeBtn").onclick = () => { const v = $("codeIn").value.trim(); if (!v) retur
 $("codeIn").onkeydown = e => { if (e.key === "Enter") $("codeBtn").click(); };
 $("forget").onclick = () => { store.del("bidCode"); code = null; showGate(); };
 if (code) showApp(); else showGate();
+
+/* staff portfolio export */
+$("exportBtn").onclick = async () => {
+  const btn = $("exportBtn"); btn.disabled = true; btn.textContent = "Building file…";
+  try {
+    const r = await fetch(EXPORT_URL, { method: "POST", headers: { "Content-Type": "application/json", "x-bid-code": code }, body: "{}" });
+    if (r.status === 401) { store.del("bidCode"); showGate("That code didn't work. Check it with Liam and try again."); return; }
+    if (!r.ok) throw new Error("Server error " + r.status);
+    const blob = await r.blob();
+    const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+    a.download = "HAGGERTY Individual Portfolio " + new Date().toISOString().slice(0, 10) + ".xlsx";
+    document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+    toast("Portfolio downloaded");
+  } catch (e) { toast("Export failed: " + e.message); }
+  finally { btn.disabled = false; btn.textContent = "Download portfolio (.xlsx)"; }
+};
 
 /* list */
 async function load(){
