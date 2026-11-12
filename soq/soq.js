@@ -10,7 +10,7 @@ const SOQ_CONFIG = {
     ["David Cuppet", "Advise Manager"], ["Patrick Dobson", "Construction Advisory Services"], ["David Booth", "General Superintendent"],
     ["Scott Penfield", "Senior Project Manager"], ["William Jarvis", "Safety Manager"]
   ],
-  bandCount: 9
+  bandCount: 11  // each band photo is used once; extra bio pages beyond this get no band
 };
 const STATIC = {
 "about": "<section class=\"page\">\n  <div class=\"hero\" style=\"background-image:url('@@B@@hero-about.jpg')\">\n    <img class=\"toplogo\" src=\"@@B@@logo.png\">\n    <div class=\"herotext\"><div class=\"kicker\">Statement of Qualifications</div>\n      <div class=\"big\">Our <em>Team</em></div>\n      <div class=\"sub\">One contact. One team. From planning to final walkthrough.</div>@@PREP@@</div>\n  </div>\n  <div class=\"body\">\n    <div class=\"label\">Overview</div>\n    <h1>About <em>HAGGERTY</em></h1>\n    <div class=\"cols2\">\n      <p>HAGGERTY is a full-service general contractor serving Northern California, the Central Valley and the Bay Area for 15 years and nearly 500 projects. The company has grown the same way our best clients have: steady and with purpose.</p>\n      <p>Recent acquisitions of TMW and Miller Pacific have increased the area HAGGERTY serves and the projects we can take on, while we still operate as one team with one point of contact from early planning through final completion. That consistency is why our employees have named us The Best Place to Work five times.</p>\n    </div>\n    <div class=\"label mt\">By the Numbers</div>\n    <div class=\"stats\">\n      <div><b>25,000</b><span>SF headquarters</span></div>\n      <div><b>800+</b><span>Recorded days without a time-loss injury</span></div>\n      <div><b>100</b><span>Employees</span></div>\n      <div><b>76%</b><span>Clients requesting additional projects</span></div>\n      <div><b>60+</b><span>Fleet vehicles</span></div>\n      <div><b>0.81</b><span>Experience modification rate</span></div>\n    </div>\n  </div>\n  <div class=\"foot\"><span class=\"pn\">1</span><span class=\"fl\">Overview</span><span class=\"rule\"></span><img class=\"flogo\" src=\"@@B@@logo.png\"></div>\n</section>",
@@ -40,7 +40,7 @@ function bioPage(person, photos, band) {
   <div class="body"><div class="label">Team Resumes</div>${h1(person.name)}</div>
   <div class="bleft">${photo("bhs", person.name, photos)}<div class="bblock"><div class="bt">${esc(person.title)}</div>${yrs}</div></div>
   <div class="bright"><p class="bbio${small}">${esc(person.bio)}</p>${exp}</div>
-  <div class="bband2" style="background-image:url('@@B@@band-${band}.jpg')"></div>
+  ${band ? `<div class="bband2" style="background-image:url('@@B@@band-${band}.jpg')"></div>` : ""}
   ${foot("Team Resumes")}
 </section>`;
 }
@@ -170,7 +170,7 @@ function buildSOQ(P, base) {
   const people = [...(P.leaders || []), ...(P.team || [])];
   const seen = new Set();
   const list = people.filter(p => { const k = key(p.name); if (seen.has(k)) return false; seen.add(k); return true; });
-  list.forEach((p, i) => pages.push(bioPage(p, photos, (i % SOQ_CONFIG.bandCount) + 1)));
+  list.forEach((p, i) => pages.push(bioPage(p, photos, i < SOQ_CONFIG.bandCount ? i + 1 : 0)));
   const projStart = pages.length + 1;
   const projList = (P.projects || []);
   projList.forEach(p => pages.push(projPage(p)));
